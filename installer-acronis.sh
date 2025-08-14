@@ -370,7 +370,7 @@ display_menu() {
     echo "║-------------------------------------------------------║"
     echo "║ Docs : https://github.com/ipunkpras/acronis-installer ║"
     echo "║ Org. : Dcloud @PT. Datacomm Diangraha🏢               ║"
-    echo "║---- v1.0 |     🌐 ipunkpras.my.id   | JKT,ID 2025 ----║"
+    echo "║---- v1.0 |     🌐 dcloud.co.id      | JKT,ID 2025 ----║"
     echo "╚═══════════════════════════════════════════════════════╝"
     echo ""
     echo "Choose Action:"
