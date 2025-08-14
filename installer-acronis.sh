@@ -49,19 +49,22 @@ run_cvt_tool() {
 
     # Step 3: Prompt for user input
     read -p "Enter login (--your-acronis-user--): " LOGIN
-    # Set default value for HOST if not provided
-    read -p "Enter host <--domain-portal-acronis--> [default: cloudbackup.datacomm.co.id]: " HOST
-    HOST=${HOST:-cloudbackup.datacomm.co.id}
+    HOST=cloudbackup.datacomm.co.id
 
     # Step 4: Run the tool and save output to a log file
     HOSTNAME=$(hostname)
     DATE=$(date +'%Y-%m-%d')
     LOG_FILE="/tmp/cvt_${HOSTNAME}_${DATE}.log"
+
+      log_with_timestamp() {
+        while IFS= read -r line; do
+            echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
+        done
+    }
     
-    echo "🔎 Running the CVT tool..."
-    /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h="$HOST" | while IFS= read -r line; do
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
-    done >> "$LOG_FILE"
+    echo "🏃 Running the CVT tool..."
+    cd /tmp/cvt_tool/
+    sudo ./msp_port_checker_packed.exe -u="$LOGIN" -h="$HOST" | tee "$LOG_FILE"
     
     echo "✅ The CVT tool has finished running. Output saved to: $LOG_FILE"
 }
@@ -350,3 +353,4 @@ while true; do
             ;;
     esac
 done
+
