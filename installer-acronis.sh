@@ -306,13 +306,13 @@ run_acropsh() {
 
 # Banner and menu
 display_menu() {
-    echo "╔═════════════════════════════════════════════╗"
-    echo "║        ACRONIS CYBER PROTECT SCRIPT         ║"
-    echo "║---------------------------------------------║"
-    echo "║ Dev : https://github.com/ipunkpras          ║"
-    echo "║ Org : Dcloud                                ║"
-    echo "║>> v1.0 | 🌐 ipunkpras.my.id | JKT,ID 2025 <<║"
-    echo "╚═════════════════════════════════════════════╝"
+    echo "╔═══════════════════════════════════════════════════════╗"
+    echo "║            ACRONIS CYBER PROTECT SCRIPT               ║"
+    echo "║-------------------------------------------------------║"
+    echo "║ Docs : https://github.com/ipunkpras/acronis-installer ║"
+    echo "║ Org. : Dcloud @PT. Datacomm Diangraha🏢               ║"
+    echo "║---- v1.0 |     🌐 ipunkpras.my.id   | JKT,ID 2025 ----║"
+    echo "╚═══════════════════════════════════════════════════════╝"
     echo ""
     echo "Choose Action:"
     echo "[1] Install Acronis Agent"
