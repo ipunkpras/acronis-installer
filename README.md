@@ -58,10 +58,12 @@ Once the script is executed, the menu will display the following options:
    - This option checks the status of the Acronis services `aakore` and `acronis_mms`. It will display whether each service is running or not.
 
 4. **[4] Run acropsh Tool**:
-   - This option will check if both `aakore` and `acronis_mms` services are installed and running. If both services are running, it will proceed to install Python3 (if necessary), download the `acropsh` tool, and execute it.
-   - If either of the services is not running, the script will cancel the execution of `acropsh` and return to the menu.
-
-5. **[0] Cancel / Exit**:
+   - Run the acropsh tool to check the health and status of the Acronis installation.
+     
+5. **[5] Run CVT Tool**:
+   - Runs the Linux Connection Verification Tool (CVT) to ensure proper connection to Acronis Cloud.
+  
+6. **[0] Cancel / Exit**:
    - This option will exit the script.
 
 ## Example Usage
@@ -75,5 +77,6 @@ Once the script is executed, the menu will display the following options:
 
 When you run the script, you will be presented with the following menu options:
 
-<img width="382" height="275" alt="image" src="https://github.com/user-attachments/assets/b34e0383-9725-4099-95c2-d634f8e06df6" />
+<img width="480" height="302" alt="image" src="https://github.com/user-attachments/assets/f5768ae6-2df2-4473-a846-2820d735dead" />
+
 
