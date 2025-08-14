@@ -1,6 +1,6 @@
 # Acronis Cyber Protect Agent Installation Script
 
-This script automates the installation, uninstallation, and service checking of the **Acronis Cyber Protect Agent** for Datacomm Cloud Backup. The script supports both Linux systems and provides a menu for the user to select the desired action.
+This script is designed to manage the installation and uninstallation of **Acronis Cyber Protect Agent** on Linux systems. It also provides functionalities to check the status of required services and run the `acropsh` tool for Datacomm Cloud Backup. The script supports both Linux systems and provides a menu for the user to select the desired action.
 
 ## Features
 - Install the Acronis Cyber Protect Agent
@@ -13,36 +13,67 @@ This script automates the installation, uninstallation, and service checking of 
 - **Root access**: The script must be run with root privileges to install/uninstall the Acronis agent.
 - **Curl**: For downloading the installer.
 - **Systemd**: To check the Acronis service status.
-  
+
+## Features
+- Install or Uninstall Acronis Cyber Protect Agent
+- Check the status of Acronis services (`aakore` and `acronis_mms`)
+- Install and run the `acropsh` tool
+- Python 3 installation if needed
+
+## Requirements
+- Root access (sudo privileges)
+- Python 3 installed (the script will attempt to install Python 3 if it's missing)
+- `acropsh` tool needs to be run only when both `aakore` and `acronis_mms` services are running
+
 ## Installation
 
-1. **Download the script** or create a new file and paste the script content into it:
+1. **Clone or Download the Script**:
+   - You can download or clone this repository to your server or Linux machine.
    
-   ```bash
-   nano installer_acronis.sh
+2. **Make the Script Executable**:
+   - Once you've downloaded or cloned the script, navigate to the directory containing the script and run:
+     ```bash
+     chmod +x installer-acronis.sh
+     ```
 
-2. **Make the script executable**
-   
+3. **Run the Script**:
+   - To run the script, use the following command:
+     ```bash
+     sudo ./installer-acronis.sh
+     ```
+
+   - The script will display a menu with options.
+
+## Menu Options
+
+Once the script is executed, the menu will display the following options:
+
+1. **[1] Install Acronis Agent**:
+   - This option starts the installation process of the Acronis Cyber Protect Agent.
+
+2. **[2] Uninstall Acronis Agent**:
+   - This option will uninstall the Acronis Cyber Protect Agent if it is already installed.
+
+3. **[3] Check Acronis Services**:
+   - This option checks the status of the Acronis services `aakore` and `acronis_mms`. It will display whether each service is running or not.
+
+4. **[4] Run acropsh Tool**:
+   - This option will check if both `aakore` and `acronis_mms` services are installed and running. If both services are running, it will proceed to install Python3 (if necessary), download the `acropsh` tool, and execute it.
+   - If either of the services is not running, the script will cancel the execution of `acropsh` and return to the menu.
+
+5. **[0] Cancel / Exit**:
+   - This option will exit the script.
+
+## Example Usage
+
+1. **Start the script**:
    ```bash
-   chmod +x installer_acronis.sh
-   
-3. **Run the script**
-   
-   ```bash
-   sudo ./installer_acronis.sh
+   sudo ./installer-acronis.sh
+
 
 ## Usage
 
 When you run the script, you will be presented with the following menu options:
 
-<img width="385" height="253" alt="image" src="https://github.com/user-attachments/assets/62f256bc-cb0a-42e2-a4ce-afdf702db93a" />
+<img width="382" height="275" alt="image" src="https://github.com/user-attachments/assets/b34e0383-9725-4099-95c2-d634f8e06df6" />
 
-## Menu Options
-
-[1] Install Acronis Agent: Start the installation process for the Acronis Cyber Protect Agent.
-
-[2] Uninstall Acronis Agent: Uninstall the currently installed Acronis Cyber Protect Agent.
-
-[3] Check Acronis Services: Check the status of the Acronis services (e.g., aakore, acronis_mms).
-
-[0] Cancel / Exit: Exit the script without making any changes.
