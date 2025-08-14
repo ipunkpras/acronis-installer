@@ -41,6 +41,66 @@ run_cvt_tool() {
 
     # Unpack the downloaded file
     echo "🔎 Unpacking the downloaded ZIP file..."
+
+    # Check if unzip is installed
+    if ! command -v unzip &> /dev/null; then
+        echo "❌ unzip not found. Attempting to install..."
+        # Detect package manager
+        if command -v apt &> /dev/null; then
+            PACKAGE_MANAGER="apt"
+        elif command -v yum &> /dev/null; then
+            PACKAGE_MANAGER="yum"
+        elif command -v dnf &> /dev/null; then
+            PACKAGE_MANAGER="dnf"
+        elif command -v zypper &> /dev/null; then
+            PACKAGE_MANAGER="zypper"
+        else
+            echo "❌ Unknown package manager. This script supports apt, yum, dnf, and zypper."
+            exit 1
+        fi
+
+        # Prompt for user input to install unzip
+        case "$PACKAGE_MANAGER" in
+            "apt")
+                read -p "Do you want to install unzip using apt? (y/n): " INSTALL_CONFIRMATION
+                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
+                    sudo apt update && sudo apt install -y unzip
+                else
+                    echo "Installation of unzip was skipped. Exiting script."
+                    exit 1
+                fi
+                ;;
+            "yum")
+                read -p "Do you want to install unzip using yum? (y/n): " INSTALL_CONFIRMATION
+                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
+                    sudo yum install -y unzip
+                else
+                    echo "Installation of unzip was skipped. Exiting script."
+                    exit 1
+                fi
+                ;;
+            "dnf")
+                read -p "Do you want to install unzip using dnf? (y/n): " INSTALL_CONFIRMATION
+                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
+                    sudo dnf install -y unzip
+                else
+                    echo "Installation of unzip was skipped. Exiting script."
+                    exit 1
+                fi
+                ;;
+            "zypper")
+                read -p "Do you want to install unzip using zypper? (y/n): " INSTALL_CONFIRMATION
+                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
+                    sudo zypper install -y unzip
+                else
+                    echo "Installation of unzip was skipped. Exiting script."
+                    exit 1
+                fi
+                ;;
+        esac
+    fi
+
+    # Now, unzip the file after checking or installing unzip
     unzip /tmp/Linux64.zip -d /tmp/cvt_tool
 
     # Step 2: Grant execution permissions to the executable
@@ -56,7 +116,7 @@ run_cvt_tool() {
     DATE=$(date +'%Y-%m-%d')
     LOG_FILE="/tmp/cvt_${HOSTNAME}_${DATE}.log"
 
-      log_with_timestamp() {
+    log_with_timestamp() {
         while IFS= read -r line; do
             echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
         done
@@ -68,7 +128,6 @@ run_cvt_tool() {
     
     echo "✅ The CVT tool has finished running. Output saved to: $LOG_FILE"
 }
-
 
 # === Configuration ===
 BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
@@ -353,4 +412,3 @@ while true; do
             ;;
     esac
 done
-
