@@ -1,5 +1,6 @@
-# v1.1 - Install and uninstall Acronis Cyber Protect Agent Script - Datacomm Cloud Backup
 #!/bin/bash
+# Script instalasi dan uninstall Acronis Cyber Protect Agent - Datacomm Cloud Backup
+
 # Log file for cleanup process
 LOG_CLEANUP="/tmp/cleanup_$(date +'%Y-%m-%d').log"
 
@@ -361,7 +362,7 @@ display_menu() {
     echo "║-------------------------------------------------------║"
     echo "║ Docs : https://github.com/ipunkpras/acronis-installer ║"
     echo "║ Org. : Dcloud @PT. Datacomm Diangraha🏢               ║"
-    echo "║---- v1.1 |     🌐 dcloud.co.id      | JKT,ID 2025 ----║"
+    echo "║---- v1.0 |     🌐 dcloud.co.id      | JKT,ID 2025 ----║"
     echo "╚═══════════════════════════════════════════════════════╝"
     echo ""
     echo "Choose Action:"
