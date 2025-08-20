@@ -99,30 +99,30 @@ run_cvt_tool() {
 
     # Step 1: Download the Linux Connection Verification Tool (64bit)
     echo "🔎 Downloading the Linux Connection Verification Tool..."
-    wget https://dl.acronis.com/u/support/KB/Linux64.zip -O /tmp/Linux64.zip
+    wget https://dl.acronis.com/u/support/KB/Linux64.zip -O ~/acronis-installer/Linux64.zip
 
     # Check if unzip is available and install if necessary
     check_and_install_unzip
 
     # Unpack the downloaded file using unzip (since it's a .zip file)
     echo "🔎 Unpacking the downloaded ZIP file..."
-    unzip /tmp/Linux64.zip -d /tmp/cvt_tool
+    unzip ~/acronis-installer/Linux64.zip -d ~/acronis-installer/cvt_tool
 
     # Step 2: Grant execution permissions to the executable
     echo "🔎 Granting execution permissions to msp_port_checker_packed.exe..."
-    chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
+    chmod +x ~/acronis-installer/cvt_tool/msp_port_checker_packed.exe
 
     # Step 3: Prompt for user input
-    read -p "Enter login (--your-acronis-user--): " LOGIN
+    read -p "Enter login (--YOUR-ACRONIS-USER--): " LOGIN
     HOST=cloudbackup.datacomm.co.id
 
     # Step 4: Run the tool and save output to a log file
     HOSTNAME=$(hostname)
     DATE=$(date +'%Y-%m-%d')
-    LOG_FILE="/tmp/cvt_${HOSTNAME}_${DATE}.log"
+    LOG_FILE="~/acronis-installer/cvt_${HOSTNAME}_${DATE}.log"
 
     echo "🏃 Running the CVT tool..."
-    cd /tmp/cvt_tool/
+    cd ~/acronis-installer/cvt_tool
     sudo ./msp_port_checker_packed.exe -u="$LOGIN" -h="$HOST" | tee "$LOG_FILE"
     
     echo "✅ The CVT tool has finished running. Output saved to: $LOG_FILE"
