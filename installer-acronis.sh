@@ -110,6 +110,7 @@ run_cvt_tool() {
 
     # Step 2: Grant execution permissions to the executable
     echo "🔎 Granting execution permissions to msp_port_checker_packed.exe..."
+    chmod u+w /tmp/cvt_tool
     chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
 
     # Step 3: Prompt for user input
@@ -123,7 +124,6 @@ run_cvt_tool() {
 
     echo "🏃 Running the CVT tool..."
     cd /tmp/cvt_tool/
-    sudo chmod u+w /tmp/cvt_tool
     sudo ./msp_port_checker_packed.exe -u="$LOGIN" -h="$HOST" | tee "$LOG_FILE"
     
     echo "✅ The CVT tool has finished running. Output saved to: $LOG_FILE"
