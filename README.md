@@ -1,37 +1,28 @@
 # Acronis Cyber Protect Agent Installation Script
 
-This script is designed to manage the installation and uninstallation of **Acronis Cyber Protect Agent** on Linux systems. It also provides functionalities to check the status of required services and run the `acropsh` tool for Datacomm Cloud Backup. The script supports both Linux systems and provides a menu for the user to select the desired action.
+This script is designed to manage the installation and uninstallation of **Acronis Cyber Protect Agent** on Linux systems. It provides functionalities to check the status of required services, install missing dependencies like `unzip`, and run the `acropsh` tool for Datacomm Cloud Backup. The script includes a menu for selecting the desired action and supports version selection for the Acronis agent installation.
 
 ## Features
-- Install the Acronis Cyber Protect Agent
-- Uninstall the Acronis Cyber Protect Agent
-- Check the status of Acronis services
-- Create a temporary directory for installation and handle the installer
-- Customizable installation version and token
+- **Install the Acronis Cyber Protect Agent**: Install the agent on Linux systems by specifying the desired version and providing a registration token.
+- **Uninstall the Acronis Cyber Protect Agent**: Uninstall the Acronis agent if it is already installed.
+- **Check the status of Acronis services**: Checks if `aakore` and `acronis_mms` services are running and reports their status.
+- **Run `acropsh` tool**: Install and run the `acropsh` tool for Datacomm Cloud Backup health checks.
+- **Run CVT Tool**: Verifies the connection to Acronis Cloud using the Linux Connection Verification Tool (CVT).
+- **Check and install missing dependencies**: Ensures required packages like `unzip` and `python3` are available and installs them if missing.
+- **Cleanup temporary files**: Removes downloaded installation files and logs after the process is complete to maintain a clean environment.
 
 ## Requirements
-- **Root access**: The script must be run with root privileges to install/uninstall the Acronis agent.
-- **Curl**: For downloading the installer.
-- **Systemd**: To check the Acronis service status.
-
-## Features
-- Install or Uninstall Acronis Cyber Protect Agent
-- Check the status of Acronis services (`aakore` and `acronis_mms`)
-- Install and run the `acropsh` tool
-- Python 3 installation if needed
-
-## Requirements
-- Root access (sudo privileges)
-- Python 3 installed (the script will attempt to install Python 3 if it's missing)
-- `acropsh` tool needs to be run only when both `aakore` and `acronis_mms` services are running
+- **Root access**: The script must be run with root privileges to install/uninstall the Acronis agent and manage services.
+- **Python 3**: The script checks for Python 3 installation, and installs it if not present.
+- **`unzip`**: The script checks if `unzip` is installed before extracting `.zip` files. If it's missing, the script will prompt the user to install it.
 
 ## Installation
 
 1. **Clone or Download the Script**:
-   - You can download or clone this repository to your server or Linux machine.
-   
+   - Download or clone this repository to your server or Linux machine.
+
 2. **Make the Script Executable**:
-   - Once you've downloaded or cloned the script, navigate to the directory containing the script and run:
+   - Navigate to the directory containing the script and run:
      ```bash
      chmod +x installer-acronis.sh
      ```
@@ -42,29 +33,35 @@ This script is designed to manage the installation and uninstallation of **Acron
      sudo ./installer-acronis.sh
      ```
 
-   - The script will display a menu with options.
+   - The script will display a menu with options to choose from.
 
 ## Menu Options
 
-Once the script is executed, the menu will display the following options:
+Once the script is executed, the following menu will be displayed:
 
 1. **[1] Install Acronis Agent**:
-   - This option starts the installation process of the Acronis Cyber Protect Agent.
+   - Starts the installation of the Acronis Cyber Protect Agent.
+   - You can select the version of the agent to install from a list of available versions.
 
 2. **[2] Uninstall Acronis Agent**:
-   - This option will uninstall the Acronis Cyber Protect Agent if it is already installed.
+   - Uninstalls the Acronis Cyber Protect Agent if it is already installed.
 
 3. **[3] Check Acronis Services**:
-   - This option checks the status of the Acronis services `aakore` and `acronis_mms`. It will display whether each service is running or not.
+   - Checks and reports the status of the `aakore` and `acronis_mms` services. It will display whether each service is running or not.
 
 4. **[4] Run acropsh Tool**:
-   - Run the acropsh tool to check the health and status of the Acronis installation.
-     
+   - Runs the `acropsh` tool to check the health and status of the Acronis installation.
+   - This requires Python 3 to be installed, and the script will handle installation if necessary.
+
 5. **[5] Run CVT Tool**:
-   - Runs the Linux Connection Verification Tool (CVT) to ensure proper connection to Acronis Cloud.
-  
-6. **[0] Cancel / Exit**:
-   - This option will exit the script.
+   - Runs the **Linux Connection Verification Tool (CVT)** to ensure the connection to Acronis Cloud is working properly.
+   - The script checks if `unzip` is installed before extracting the `.zip` file for CVT.
+
+6. **[6] Cleanup Temporary Files**:
+   - Cleans up temporary files and folders generated during the installation process, such as downloaded installer files and log files.
+
+7. **[0] Cancel / Exit**:
+   - Exits the script without performing any actions.
 
 ## Example Usage
 
@@ -72,11 +69,8 @@ Once the script is executed, the menu will display the following options:
    ```bash
    sudo ./installer-acronis.sh
 
+## Notes
 
-## Usage
+- The script checks for the availability of the required unzip and python3 packages. If they are missing, the script will prompt you to install them using the default package manager for your Linux distribution (e.g., apt, yum, dnf, or zypper).
 
-When you run the script, you will be presented with the following menu options:
-
-<img width="480" height="302" alt="image" src="https://github.com/user-attachments/assets/f5768ae6-2df2-4473-a846-2820d735dead" />
-
-
+- Temporary files generated during the installation process are cleaned up after the script finishes. You can choose to delete the installer files manually after installation if you prefer.
