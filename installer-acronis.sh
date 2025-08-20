@@ -1,5 +1,7 @@
+# v1.1 - Install and uninstall Acronis Cyber Protect Agent Script - Datacomm Cloud Backup
 #!/bin/bash
-# Script instalasi dan uninstall Acronis Cyber Protect Agent - Datacomm Cloud Backup
+# Log file for cleanup process
+LOG_CLEANUP="/tmp/cleanup_$(date +'%Y-%m-%d').log"
 
 # Loading Animation Function
 loading() {
@@ -19,6 +21,39 @@ loading() {
     printf "\n"
 }
 
+# Clean up temporary files and folders
+cleanup() {
+    echo "🧹 Cleaning up temporary files..."
+    echo "Cleanup started at $(date)" > "$LOG_CLEANUP"
+
+    # Define temporary folders and files to clean up
+    TEMP_FILES=(
+        "/tmp/Linux64.zip"
+        "/tmp/cvt_tool"
+        "/tmp/acronis_script.zip"
+        "/tmp/acronis_script"
+        "/tmp/cvt_*.log"
+        "/tmp/acropsh_*.log"
+    )
+
+    # Delete each temporary file/folder
+    for file in "${TEMP_FILES[@]}"; do
+        if [ -e "$file" ]; then
+            echo "$(date +'%Y-%m-%d %H:%M:%S') - Deleting: $file" | tee -a "$LOG_CLEANUP"
+            rm -rf "$file"
+            if [ $? -eq 0 ]; then
+                echo "$(date +'%Y-%m-%d %H:%M:%S') - Successfully deleted: $file" | tee -a "$LOG_CLEANUP"
+            else
+                echo "$(date +'%Y-%m-%d %H:%M:%S') - Failed to delete: $file" | tee -a "$LOG_CLEANUP"
+            fi
+        else
+            echo "$(date +'%Y-%m-%d %H:%M:%S') - File/Folder not found: $file" | tee -a "$LOG_CLEANUP"
+        fi
+    done
+
+    echo "✅ Cleanup completed." | tee -a "$LOG_CLEANUP"
+}
+
 # Uninstall Function
 uninstall_agent() {
     echo "⚠️ Starting uninstall process of Acronis Agent..." 
@@ -31,76 +66,45 @@ uninstall_agent() {
     fi
 }
 
+# Check if unzip is installed, if not prompt to install
+check_and_install_unzip() {
+    if ! command -v unzip &> /dev/null; then
+        echo "❌ unzip is not installed."
+        read -p "Do you want to install unzip? (y/n): " INSTALL_CONFIRMATION
+        if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
+            # Detect package manager
+            if command -v apt &> /dev/null; then
+                sudo apt update && sudo apt install -y unzip
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y unzip
+            elif command -v dnf &> /dev/null; then
+                sudo dnf install -y unzip
+            elif command -v zypper &> /dev/null; then
+                sudo zypper install -y unzip
+            else
+                echo "❌ Unknown package manager. Unable to install unzip."
+                exit 1
+            fi
+        else
+            echo "❌ Unable to continue without unzip. Exiting script."
+            exit 1
+        fi
+    fi
+}
+
 # CVT Tool Function
 run_cvt_tool() {
     echo "🔹 Running CVT Tool..."
-    
+
     # Step 1: Download the Linux Connection Verification Tool (64bit)
     echo "🔎 Downloading the Linux Connection Verification Tool..."
     wget https://dl.acronis.com/u/support/KB/Linux64.zip -O /tmp/Linux64.zip
 
-    # Unpack the downloaded file
+    # Check if unzip is available and install if necessary
+    check_and_install_unzip
+
+    # Unpack the downloaded file using unzip (since it's a .zip file)
     echo "🔎 Unpacking the downloaded ZIP file..."
-
-    # Check if unzip is installed
-    if ! command -v unzip &> /dev/null; then
-        echo "❌ unzip not found. Attempting to install..."
-        # Detect package manager
-        if command -v apt &> /dev/null; then
-            PACKAGE_MANAGER="apt"
-        elif command -v yum &> /dev/null; then
-            PACKAGE_MANAGER="yum"
-        elif command -v dnf &> /dev/null; then
-            PACKAGE_MANAGER="dnf"
-        elif command -v zypper &> /dev/null; then
-            PACKAGE_MANAGER="zypper"
-        else
-            echo "❌ Unknown package manager. This script supports apt, yum, dnf, and zypper."
-            exit 1
-        fi
-
-        # Prompt for user input to install unzip
-        case "$PACKAGE_MANAGER" in
-            "apt")
-                read -p "Do you want to install unzip using apt? (y/n): " INSTALL_CONFIRMATION
-                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
-                    sudo apt update && sudo apt install -y unzip
-                else
-                    echo "Installation of unzip was skipped. Exiting script."
-                    exit 1
-                fi
-                ;;
-            "yum")
-                read -p "Do you want to install unzip using yum? (y/n): " INSTALL_CONFIRMATION
-                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
-                    sudo yum install -y unzip
-                else
-                    echo "Installation of unzip was skipped. Exiting script."
-                    exit 1
-                fi
-                ;;
-            "dnf")
-                read -p "Do you want to install unzip using dnf? (y/n): " INSTALL_CONFIRMATION
-                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
-                    sudo dnf install -y unzip
-                else
-                    echo "Installation of unzip was skipped. Exiting script."
-                    exit 1
-                fi
-                ;;
-            "zypper")
-                read -p "Do you want to install unzip using zypper? (y/n): " INSTALL_CONFIRMATION
-                if [[ "$INSTALL_CONFIRMATION" == "y" || "$INSTALL_CONFIRMATION" == "Y" ]]; then
-                    sudo zypper install -y unzip
-                else
-                    echo "Installation of unzip was skipped. Exiting script."
-                    exit 1
-                fi
-                ;;
-        esac
-    fi
-
-    # Now, unzip the file after checking or installing unzip
     unzip /tmp/Linux64.zip -d /tmp/cvt_tool
 
     # Step 2: Grant execution permissions to the executable
@@ -116,12 +120,6 @@ run_cvt_tool() {
     DATE=$(date +'%Y-%m-%d')
     LOG_FILE="/tmp/cvt_${HOSTNAME}_${DATE}.log"
 
-    log_with_timestamp() {
-        while IFS= read -r line; do
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
-        done
-    }
-    
     echo "🏃 Running the CVT tool..."
     cd /tmp/cvt_tool/
     sudo ./msp_port_checker_packed.exe -u="$LOGIN" -h="$HOST" | tee "$LOG_FILE"
@@ -141,77 +139,95 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 install_agent() {
-echo "🔹 Start the agent installation process..."
-# === Input from user ===
-read -rp "Please input the Registration Token: " REGISTRATION_TOKEN
-read -rp "Enter path temporary folder (default: ~/acronis-installer): " TMP_DIR
-read -rp "Enter agent version Acronis (default: $DEFAULT_VERSION): " VERSION
+    echo "🔹 Start the agent installation process..."
 
-# === Validation token ===
-if [[ -z "$REGISTRATION_TOKEN" ]]; then
-    echo "❌ Tokens cannot be empty."
-    exit 1
-fi
+    # Fetch the available versions from the URL
+    echo "🔎 Fetching available versions from the server..."
+    available_versions=$(wget -q -O - "https://cloudbackup.datacomm.co.id/download/u/baas/4.0/" | \
+        grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+/' | \
+        sed 's/\/$//')
 
-# if the folder is empty, set default.
-if [[ -z "$TMP_DIR" ]]; then
-    TMP_DIR="~/acronis-installer"
-fi
+    if [[ -z "$available_versions" ]]; then
+        echo "❌ No available versions found."
+        exit 1
+    fi
 
-# If the version is empty, use the default
-if [[ -z "$VERSION" ]]; then
-    VERSION="$DEFAULT_VERSION"
-fi
+    echo "Available versions:"
+    echo "$available_versions"
+    
+    # Prompt the user to choose a version from the available list
+    read -rp "Enter agent version Acronis (available versions listed above): " VERSION
 
-ACRONIS_URL="$BASE_URL/$VERSION/$INSTALLER_NAME"
-INSTALLER_PATH="$TMP_DIR/$INSTALLER_NAME"
+    # Validate the version input
+    if ! echo "$available_versions" | grep -q "$VERSION"; then
+        echo "❌ Invalid version selected. Please choose from the available versions."
+        exit 1
+    fi
 
-# Make sure the temporary folder exists
-echo "[1/5] Create a temporary folder in $TMP_DIR..."
-mkdir -p "$TMP_DIR"
-loading 3
-if [[ $? -ne 0 ]]; then
-    echo "❌ Failed to create folder $TMP_DIR"
-    exit 1
-fi
+    read -rp "Please input the Registration Token: " REGISTRATION_TOKEN
+    read -rp "Enter path temporary folder (default: ~/acronis-installer): " TMP_DIR
 
-echo "[2/5] Download installer Acronis..."
-curl -fLo "$INSTALLER_PATH" "$ACRONIS_URL"
-loading 3
-if [[ $? -ne 0 ]]; then
-    echo "❌ Installer download failed. Check the URL or internet connection."
-    exit 1
-fi
+    # === Validation token ===
+    if [[ -z "$REGISTRATION_TOKEN" ]]; then
+        echo "❌ Tokens cannot be empty."
+        exit 1
+    fi
 
-echo "[3/5] Granting execution rights to the installer..."
-chmod +x "$INSTALLER_PATH"
-loading 3
+    # if the folder is empty, set default.
+    if [[ -z "$TMP_DIR" ]]; then
+        TMP_DIR="~/acronis-installer"
+    fi
 
-echo "[4/5] Running the agent installation..."
-"$INSTALLER_PATH" -a --token="$REGISTRATION_TOKEN"
-loading 3
-if [[ $? -ne 0 ]]; then
-    echo "❌ Installation failed. Check your token or internet connection."
-    exit 1
-fi
+    # Set the Acronis URL and installer path based on the selected version
+    ACRONIS_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$INSTALLER_NAME"
+    INSTALLER_PATH="$TMP_DIR/$INSTALLER_NAME"
 
-# Check service status after installation
-echo "[5/5] Checking service status..."
-echo "--- Status aakore ---"
-systemctl status aakore --no-pager || echo "Service aakore not found."
-echo "--- Status acronis_mms ---"
-systemctl status acronis_mms --no-pager || echo "Service acronis_mms not found."
+    # Make sure the temporary folder exists
+    echo "[1/5] Create a temporary folder in $TMP_DIR..."
+    mkdir -p "$TMP_DIR"
+    loading 3
+    if [[ $? -ne 0 ]]; then
+        echo "❌ Failed to create folder $TMP_DIR"
+        exit 1
+    fi
 
-# Confirmation to delete the installer
-read -rp "Are you sure to delete the installer? (y/n): " confirm
-if [[ "$confirm" =~ ^[Yy]$ ]]; then
-    rm -rf "$TMP_DIR"
-    echo "🗑️ Acronis Agent installer file has been deleted."
-else
-    echo "ℹ️ Acronis Agent installer file has been saved in: $TMP_DIR"
-fi
+    echo "[2/5] Download installer Acronis..."
+    curl -fLo "$INSTALLER_PATH" "$ACRONIS_URL"
+    loading 3
+    if [[ $? -ne 0 ]]; then
+        echo "❌ Installer download failed. Check the URL or internet connection."
+        exit 1
+    fi
 
-echo "✅ Installation has been completed. Machine has been listed on Portal Acronis."
+    echo "[3/5] Granting execution rights to the installer..."
+    chmod +x "$INSTALLER_PATH"
+    loading 3
+
+    echo "[4/5] Running the agent installation..."
+    "$INSTALLER_PATH" -a --token="$REGISTRATION_TOKEN"
+    loading 3
+    if [[ $? -ne 0 ]]; then
+        echo "❌ Installation failed. Check your token or internet connection."
+        exit 1
+    fi
+
+    # Check service status after installation
+    echo "[5/5] Checking service status..."
+    echo "--- Status aakore ---"
+    systemctl status aakore --no-pager || echo "Service aakore not found."
+    echo "--- Status acronis_mms ---"
+    systemctl status acronis_mms --no-pager || echo "Service acronis_mms not found."
+
+    # Confirmation to delete the installer
+    read -rp "Are you sure to delete the installer? (y/n): " confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        rm -rf "$TMP_DIR"
+        echo "🗑️ Acronis Agent installer file has been deleted."
+    else
+        echo "ℹ️ Acronis Agent installer file has been saved in: $TMP_DIR"
+    fi
+
+    echo "✅ Installation has been completed. Machine has been listed on Portal Acronis."
 }
 
 # === Checking Acronis Services===
@@ -319,47 +335,22 @@ run_acropsh() {
     echo "Downloading the acropsh tool script..."
     wget "https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1" -O /tmp/acronis_script.zip
 
-    # Step 4: Copy the .zip archive to the required Linux machine and unpack it
-    echo "Unpacking the .zip archive..."
-    unzip /tmp/acronis_script.zip -d /tmp/acronis_script
-
-    HOSTNAME=$(hostname)
-    DATE=$(date +'%Y-%m-%d')
-    LOG_FILE="/tmp/acropsh_${HOSTNAME}_${DATE}.log"
-
-    # Step 5: Execute the acropsh tool and log the output with timestamps
-    echo "Running the acropsh tool..."
+    # Check if unzip is available and install if necessary
+    check_and_install_unzip
     
-    # Function to add timestamps to logs
-    log_with_timestamp() {
-        while IFS= read -r line; do
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
-        done
-    }
-
-    # Run the acropsh tool, adding timestamps to logs
-    OUTPUT=$(cd /tmp/acronis_script/linux_installation_healthcheck/ && sudo acropsh main.py | log_with_timestamp >> "$LOG_FILE" 2>&1)
-
-    # Step 6: Monitor for the generated HTML file in the log and check its existence
-    GENERATED_HTML_FILE=""
-    while true; do
-        GENERATED_HTML_FILE=$(tail -n 1 "$LOG_FILE" | grep -oP 'HTML report saved to \K.*\.html' | head -n 1)
-        
-        if [ -n "$GENERATED_HTML_FILE" ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - Generated HTML file: $GENERATED_HTML_FILE"
-            break
-        fi
-        
-        sleep 1  # Wait 1 second before checking again
-    done
-
-    # Step 7: Update file permissions
+    # Step 4: Unpack and run the tool
+    unzip /tmp/acronis_script.zip -d /tmp/acronis_script
+    OUTPUT=$(cd /tmp/acronis_script/linux_installation_healthcheck/ && sudo python3 main.py)
+    
+    # Save output to log
+    LOG_FILE="/tmp/acropsh_${HOSTNAME}_$(date +'%Y-%m-%d').log"
+    echo "$OUTPUT" > "$LOG_FILE"
+    
+    # Step 5: Monitor for generated HTML file in the log and change its permissions
+    GENERATED_HTML_FILE=$(tail -n 1 "$LOG_FILE" | grep -oP 'HTML report saved to \K.*\.html')
     if [ -n "$GENERATED_HTML_FILE" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Changing permissions of the generated HTML file to rw--r--r-- (644)..."
+        echo "Generated HTML report: $GENERATED_HTML_FILE"
         chmod 644 "$GENERATED_HTML_FILE"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Permissions updated successfully."
-    else
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - ❌ No HTML file generated. Skipping permission update."
     fi
 }
 
@@ -379,8 +370,9 @@ display_menu() {
     echo "[3] Check Acronis Services"
     echo "[4] Run acropsh Tool"
     echo "[5] Run CVT Tool"
+    echo "[6] Cleanup Temporary Files"
     echo "[0] Cancel / Exit"
-    read -rp "Enter the options (0/1/2/3/4/5): " ACTION
+    read -rp "Enter the options (0/1/2/3/4/5/6): " ACTION
 }
 
 # Main Menu Loop
@@ -402,6 +394,9 @@ while true; do
             ;;
         5)
             run_cvt_tool
+            ;;
+        6)
+            cleanup
             ;;
         0)
             echo "❌ Action has been canceled. Byeee..."
