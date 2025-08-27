@@ -74,3 +74,10 @@ Once the script is executed, the following menu will be displayed:
 - The script checks for the availability of the required unzip and python3 packages. If they are missing, the script will prompt you to install them using the default package manager for your Linux distribution (e.g., apt, yum, dnf, or zypper).
 
 - Temporary files generated during the installation process are cleaned up after the script finishes. You can choose to delete the installer files manually after installation if you prefer.
+- 
+
+```markdown
+## Penggunaan
+Setelah menginstal dependensi, jalankan aplikasi dengan perintah:
+```bash
+python app.py
