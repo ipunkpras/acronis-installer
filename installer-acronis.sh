@@ -132,7 +132,7 @@ run_cvt_tool() {
 
 # === Configuration ===
 BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
-DEFAULT_VERSION="25.6.40492"
+DEFAULT_VERSION="25.8.40800"
 INSTALLER_NAME="CyberProtect_AgentForLinux_x86_64.bin"
 
 # === Root Checking ===
@@ -148,7 +148,7 @@ install_agent() {
     echo "🔎 Fetching available versions from the server..."
     available_versions=$(wget -q -O - "https://cloudbackup.datacomm.co.id/download/u/baas/4.0/" | \
         grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+/' | \
-        sed 's/\/$//')
+        sed 's/\/$//' | sort -V)
 
     if [[ -z "$available_versions" ]]; then
         echo "❌ No available versions found."
@@ -156,51 +156,49 @@ install_agent() {
     fi
 
     echo "Available versions:"
-    echo "$available_versions"
-    
-    # Prompt the user to choose a version from the available list
-    read -rp "Enter agent version Acronis (available versions listed above): " VERSION
+    i=1
+    version_array=()
+    while IFS= read -r ver; do
+        echo "  [$i] $ver"
+        version_array+=("$ver")
+        ((i++))
+    done <<< "$available_versions"
 
-    # Validate the version input
-    if ! echo "$available_versions" | grep -q "$VERSION"; then
-        echo "❌ Invalid version selected. Please choose from the available versions."
+    # Prompt the user to choose by number
+    read -rp "Enter the number of the version you want to install: " choice
+
+    # Validate input number
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#version_array[@]} )); then
+        echo "❌ Invalid choice. Please enter a number between 1 and ${#version_array[@]}."
         exit 1
     fi
+
+    VERSION="${version_array[$((choice-1))]}"
+    echo "✅ You selected version: $VERSION"
 
     read -rp "Please input the Registration Token: " REGISTRATION_TOKEN
     read -rp "Enter path temporary folder (default: ~/acronis-installer): " TMP_DIR
 
-    # === Validation token ===
     if [[ -z "$REGISTRATION_TOKEN" ]]; then
         echo "❌ Tokens cannot be empty."
         exit 1
     fi
 
-    # if the folder is empty, set default.
     if [[ -z "$TMP_DIR" ]]; then
         TMP_DIR="~/acronis-installer"
     fi
 
-    # Set the Acronis URL and installer path based on the selected version
+    INSTALLER_NAME="Backup_Agent_for_Linux_x86_64.bin"
     ACRONIS_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$INSTALLER_NAME"
     INSTALLER_PATH="$TMP_DIR/$INSTALLER_NAME"
 
-    # Make sure the temporary folder exists
     echo "[1/5] Create a temporary folder in $TMP_DIR..."
     mkdir -p "$TMP_DIR"
-    loading 3
-    if [[ $? -ne 0 ]]; then
-        echo "❌ Failed to create folder $TMP_DIR"
-        exit 1
-    fi
+    loading 3 || { echo "❌ Failed to create folder $TMP_DIR"; exit 1; }
 
     echo "[2/5] Download installer Acronis..."
     curl -fLo "$INSTALLER_PATH" "$ACRONIS_URL"
-    loading 3
-    if [[ $? -ne 0 ]]; then
-        echo "❌ Installer download failed. Check the URL or internet connection."
-        exit 1
-    fi
+    loading 3 || { echo "❌ Installer download failed. Check the URL or internet connection."; exit 1; }
 
     echo "[3/5] Granting execution rights to the installer..."
     chmod +x "$INSTALLER_PATH"
@@ -208,20 +206,14 @@ install_agent() {
 
     echo "[4/5] Running the agent installation..."
     "$INSTALLER_PATH" -a --token="$REGISTRATION_TOKEN"
-    loading 3
-    if [[ $? -ne 0 ]]; then
-        echo "❌ Installation failed. Check your token or internet connection."
-        exit 1
-    fi
+    loading 3 || { echo "❌ Installation failed. Check your token or internet connection."; exit 1; }
 
-    # Check service status after installation
     echo "[5/5] Checking service status..."
     echo "--- Status aakore ---"
     systemctl status aakore --no-pager || echo "Service aakore not found."
     echo "--- Status acronis_mms ---"
     systemctl status acronis_mms --no-pager || echo "Service acronis_mms not found."
 
-    # Confirmation to delete the installer
     read -rp "Are you sure to delete the installer? (y/n): " confirm
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         rm -rf "$TMP_DIR"
@@ -231,26 +223,6 @@ install_agent() {
     fi
 
     echo "✅ Installation has been completed. Machine has been listed on Portal Acronis."
-}
-
-# === Checking Acronis Services===
-check_services() {
-    echo ""
-    echo "🔎 Checking Acronis service status..."
-    loading 3
-    # Checking aakore service
-    if systemctl is-active --quiet aakore; then
-        echo "1. aakore: ✅ Running"
-    else
-        echo "1. aakore: ⚠️  Not Running/Not Found"
-    fi
-
-    # Checking acronis_mms service
-    if systemctl is-active --quiet acronis_mms; then
-        echo "2. acronis_mms: ✅ Running"
-    else
-        echo "2. acronis_mms: ⚠️  Not Running/Not Found"
-    fi
 }
 
 # Tool Function: Run acropsh tool
@@ -371,12 +343,15 @@ display_menu() {
     echo "--Installation Tools--"
     echo "[1] Install Acronis Agent"
     echo "[2] Uninstall Acronis Agent"
+    echo ""
     echo "--Diagnostic Tools--"
     echo "[3] Check Acronis Services"
     echo "[4] Run acropsh Tool"
     echo "[5] Run CVT Tool"
+    echo ""
     echo "--Cleaner Tools--"
     echo "[6] Cleanup Temporary Files"
+    echo ""
     echo "[0] Cancel / Exit"
     read -rp "Enter the options (0/1/2/3/4/5/6): " ACTION
 }
