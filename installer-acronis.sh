@@ -343,15 +343,14 @@ display_menu() {
     echo "--Installation Tools--"
     echo "[1] Install Acronis Agent"
     echo "[2] Uninstall Acronis Agent"
-    echo ""
+    
     echo "--Diagnostic Tools--"
     echo "[3] Check Acronis Services"
     echo "[4] Run acropsh Tool"
     echo "[5] Run CVT Tool"
-    echo ""
-    echo "--Cleaner Tools--"
+    
+    echo "--Others--"
     echo "[6] Cleanup Temporary Files"
-    echo ""
     echo "[0] Cancel / Exit"
     read -rp "Enter the options (0/1/2/3/4/5/6): " ACTION
 }
