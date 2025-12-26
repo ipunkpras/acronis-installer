@@ -62,19 +62,21 @@ show_main_menu() {
     "  v2.0  |  Datacomm Cloud  |  JKT,ID 2025  "
   echo
   log "Choose action:" "$BOLD"
-  cat <<EOF | column -t -s '|'
- $GREEN[1]│Install Agent$YELLOW   (i)$RESET
- $RED[2]│Uninstall     $YELLOW(u)$RESET
- $BLUE[3]│Check Services$YELLOW (s)$RESET
- $MAGENTA[4]│acropsh Tool  $YELLOW(a)$RESET
- $CYAN[5]│CVT Tool      $YELLOW(c)$RESET
- $YELLOW[6]│Cleanup Tmp   $YELLOW(l)$RESET
- $RED[0]│Exit          $YELLOW(q)$RESET
-EOF
+
+  # Cetak manual tanpa column -----------
+  printf " $GREEN[1] Install Agent     $YELLOW(i)$RESET\n"
+  printf " $RED[2] Uninstall         $YELLOW(u)$RESET\n"
+  printf " $BLUE[3] Check Services    $YELLOW(s)$RESET\n"
+  printf " $MAGENTA[4] acropsh Tool      $YELLOW(a)$RESET\n"
+  printf " $CYAN[5] CVT Tool          $YELLOW(c)$RESET\n"
+  printf " $YELLOW[6] Cleanup Tmp       $YELLOW(l)$RESET\n"
+  printf " $RED[0] Exit              $YELLOW(q)$RESET\n"
+  # -------------------------------------
+
   echo
   read -rp "Press key (shortcut in yellow): " -n 1 key
   echo
-  case "${key,,}" in   # lowercase
+  case "${key,,}" in
     i|1) install_agent ;;
     u|2) uninstall_agent ;;
     s|3) check_services ;;
