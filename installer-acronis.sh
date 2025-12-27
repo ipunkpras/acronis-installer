@@ -115,28 +115,59 @@ install_agent() {
                                sort -V)
   [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
 
-  # Tampilkan daftar bernomor
-  log "Available installers:" "$BOLD"
-  local i=1
-  for f in "${installers[@]}"; do
-    printf " $CYAN[%2d]$RESET %s\n" "$i" "$f"
-    ((i++))
+  # ---------- FUNGSI FILTER INLINE ----------
+  filter_list() {
+    local -n arr=$1        # nameref ke array installers
+    local filt=$2
+    local -a filtered=()
+    # jika filter kosong → tampilkan semua
+    if [[ -z $filt ]]; then
+      filtered=("${arr[@]}")
+    else
+      # case-insensitive filter
+      for item in "${arr[@]}"; do
+        [[ ${item,,} == *"${filt,,}"* ]] && filtered+=("$item")
+      done
+    fi
+    # keluarkan hasil filter
+    printf '%s\n' "${filtered[@]}"
+  }
+
+  # ---------- LOOP FILTER + PILIH ----------
+  local filtered=("${installers[@]}")   # awalnya semua
+  while true; do
+    clear
+    log "Available installers:" "$BOLD"
+    local i=1
+    for f in "${filtered[@]}"; do
+      printf " $CYAN[%2d]$RESET %s\n" "$i" "$f"
+      ((i++))
+    done
+    echo
+    # input filter
+    read -rp "Filter (keyword) or ENTER to show all, 0 to cancel: " keyword
+    [[ $keyword == "0" ]] && return
+    # terapkan filter
+    mapfile -t filtered < <(filter_list installers "$keyword")
+    [[ ${#filtered[@]} -gt 0 ]] && break   # ada hasil → lanjut
+    warn "No match, try again."
   done
-  echo
+
+  # 3. Pilih nomor dari hasil filter
   while true; do
     read -rp "Select installer number: " num
-    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#installers[@]} )) && break
-    warn "Enter number between 1 and ${#installers[@]}"
+    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
+    warn "Enter number between 1 and ${#filtered[@]}"
   done
-  INSTALLER="${installers[$((num-1))]}"
+  INSTALLER="${filtered[$((num-1))]}"
   log_msg "User selected installer: $INSTALLER"
 
-  # 3. Token
+  # 4. Token
   read -rp "Registration Token: " TOKEN
   [[ -z $TOKEN ]] && { error "Token required"; return; }
   log_msg "Token accepted (hidden)"
 
-  # 4. Folder & path download
+  # 5. Folder & path download
   REAL_USER=${SUDO_USER:-$USER}
   REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
   TMP=${TMP_DIR:-$REAL_HOME/acronis-installer}
@@ -144,14 +175,14 @@ install_agent() {
   BIN=$TMP/$INSTALLER
   URL="$BASE_URL/$INSTALLER"
 
-  # 5. Download
+  # 6. Download
   log_msg "Downloading installer to $BIN ..."
   (wget -qO "$BIN" "$URL" 2>&1 | tee -a "$LOG") & spinner $! "Downloading"
   [[ -f $BIN ]] || { error "Download failed"; log_msg "Download failed"; return; }
   chmod +x "$BIN"
   log_msg "Download completed"
 
-  # 6. Install
+  # 7. Install
   log_msg "Running installer ..."
   "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
   local rc=$?
@@ -164,7 +195,7 @@ install_agent() {
     return 1
   fi
 
-  # 7. Hapus installer opsional
+  # 8. Hapus installer opsional
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
     rm -rf "$TMP"
