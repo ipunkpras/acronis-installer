@@ -134,23 +134,27 @@ install_agent() {
   }
 
   # ---------- LOOP FILTER + PILIH ----------
-  local filtered=("${installers[@]}")   # awalnya semua
+local filtered=("${installers[@]}")
   while true; do
     clear
     log "Available installers:" "$BOLD"
     local i=1
+    local found=0
     for f in "${filtered[@]}"; do
-      printf " $CYAN[%2d]$RESET %s\n" "$i" "$f"
-      ((i++))
+      # bersihkan spasi
+      local clean; clean=$(echo "$f" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      # highlight kata kunci (opsional)
+      local display
+      display=$(echo "$clean" | sed -E "s/(${keyword})/${YELLOW}\1${RESET}/gi")
+      printf "   $CYAN[%2d]$RESET %s\n" "$i" "$display"
+      ((i++)); ((found++))
     done
+    [[ $found -eq 0 ]] && { warn "No match, try again."; }
     echo
-    # input filter
     read -rp "Filter (keyword) or ENTER to show all, 0 to cancel: " keyword
     [[ $keyword == "0" ]] && return
-    # terapkan filter
     mapfile -t filtered < <(filter_list installers "$keyword")
-    [[ ${#filtered[@]} -gt 0 ]] && break   # ada hasil → lanjut
-    warn "No match, try again."
+    [[ ${#filtered[@]} -gt 0 ]] && break
   done
 
   # 3. Pilih nomor dari hasil filter
