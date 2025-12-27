@@ -127,13 +127,13 @@ install_agent() {
       [[ -z $filt ]] || [[ ${clean,,} == *"${filt,,}"* ]] && filtered+=("$clean")
     done
     printf '%s\n' "${filtered[@]}"
-      #####DEBUG
-  printf '%s\n' "${installers[@]}"   # lihat isi array
-read -n1 -p "arr len = ${#installers[@]}  (enter)"
   }
 
   # ---------- LOOP FILTER + PILIH (plus highlight) ----------
   local filtered=("${installers[@]}")   # awalnya semua
+        #####DEBUG
+printf '%s\n' "${filtered[@]}"   # lihat isi array
+read -n1 -p "arr len = ${filtered[@]}  (enter)"
   while true; do
     clear
     log "Available installers:" "$BOLD"
