@@ -88,39 +88,67 @@ show_main_menu() {
   esac
 }
 
-##############  INSTALL AGENT  ################
+###############  INSTALL AGENT  ################
 install_agent() {
-  info "Fetching available versions..."
+  local LOG="/var/log/acronis-install-$(hostname)-$(date +%F-%H-%M).log"
+  # helper: catat log + terminal
+  log_msg() { echo -e "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
+
+  log_msg "=== Acronis Agent Installation Started ==="
+
+  # 1. Pilih versi
+  log_msg "Fetching available versions ..."
   mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/ |
                         grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
-  [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; sleep 2; return; }
+  [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; return; }
 
-  log "Select version:" "$BOLD"
+  log_msg "Available versions: ${vers[*]}"
   select v in "${vers[@]}"; do [[ -n $v ]] && break; done
   VERSION=$v
+  log_msg "User selected version: $VERSION"
 
+  # 2. Token
   read -rp "Registration Token: " TOKEN
   [[ -z $TOKEN ]] && { error "Token required"; return; }
+  log_msg "Token accepted (hidden)"
 
+  # 3. Folder & nama file
   TMP=${TMP_DIR:-~/acronis-installer}
   mkdir -p "$TMP"
   BIN=$TMP/Backup_Agent_for_Linux_x86_64.bin
-  URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$BIN##1"
+  URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$BIN"
 
-  # Download with progress bar simulation
-  info "Downloading installer..."
-  (wget -qO "$BIN" "$URL" 2>/dev/null) & spinner $! "Downloading"
-  [[ -f $BIN ]] || { error "Download failed"; return; }
+  # 4. Download
+  log_msg "Downloading installer to $BIN ..."
+  (wget -qO "$BIN" "$URL" 2>&1 | tee -a "$LOG") & spinner $! "Downloading"
+  [[ -f $BIN ]] || { error "Download failed"; log_msg "Download failed"; return; }
   chmod +x "$BIN"
+  log_msg "Download completed"
 
-  info "Installing..."
-  "$BIN" -a --token="$TOKEN" & spinner $! "Installing"
-  success "Installation complete"
+  # 5. Install
+  log_msg "Running installer ..."
+  "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
+  local rc=$?
+  if [[ $rc -eq 0 ]]; then
+    success "Installation completed"
+    log_msg "Installation completed successfully"
+  else
+    error "Installation failed (exit $rc)"
+    log_msg "Installation failed (exit $rc)"
+    return 1
+  fi
 
+  # 6. Hapus installer opsional
   read -rp "Delete installer? [y/N] " del
-  [[ $del =~ ^[Yy]$ ]] && rm -rf "$TMP"
-}
+  if [[ $del =~ ^[Yy]$ ]]; then
+    rm -rf "$TMP"
+    log_msg "Installer deleted"
+  else
+    log_msg "Installer kept at $TMP"
+  fi
 
+  log_msg "=== Installation Finished ==="
+}
 ##############  UNINSTALL  ####################
 uninstall_agent() {
   warn "Starting uninstall..."
