@@ -113,8 +113,7 @@ install_agent() {
   log_msg "Token accepted (hidden)"
 
   # 3. Folder & nama file
-  HOME=echo $HOME
-  TMP=${TMP_DIR:-$HOME/acronis-installer}
+  TMP=${TMP_DIR:-$(echo $HOME)/acronis-installer}
   mkdir -p "$TMP"
   BIN=$TMP/Backup_Agent_for_Linux_x86_64.bin
   URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$BIN"
