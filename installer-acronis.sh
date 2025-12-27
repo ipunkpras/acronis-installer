@@ -131,6 +131,17 @@ install_agent() {
 
   # ---------- LOOP FILTER + PILIH (plus highlight) ----------
   local filtered=("${installers[@]}")   # awalnya semua
+  # >>> DEBUG variable filtered <<<
+  printf '\n=== DEBUG ===\n'
+  printf 'installers array  : %d item(s)\n' "${#installers[@]}"
+  printf 'filtered array    : %d item(s)\n' "${#filtered[@]}"
+  printf 'BASE_URL          : %s\n' "$BASE_URL"
+  printf 'keyword           : %s\n' "$keyword"
+  printf 'installers content:\n'
+  printf '%s\n' "${installers[@]}"
+  printf 'filtered content:\n'
+  printf '%s\n' "${filtered[@]}"
+  read -n1 -p "tekan enter untuk melanjutkan..."
   while true; do
     clear
     log "Available installers:" "$BOLD"
@@ -151,17 +162,6 @@ install_agent() {
     [[ $keyword == "0" ]] && return
     # terapkan filter
     mapfile -t filtered < <(filter_list installers "$keyword")
-  # >>> DEBUG variable filtered <<<
-  printf '\n=== DEBUG ===\n'
-  printf 'installers array  : %d item(s)\n' "${#installers[@]}"
-  printf 'filtered array    : %d item(s)\n' "${#filtered[@]}"
-  printf 'BASE_URL          : %s\n' "$BASE_URL"
-  printf 'keyword           : %s\n' "$keyword"
-  printf 'installers content:\n'
-  printf '%s\n' "${installers[@]}"
-  printf 'filtered content:\n'
-  printf '%s\n' "${filtered[@]}"
-  read -n1 -p "tekan enter untuk melanjutkan..."
     [[ ${#filtered[@]} -gt 0 ]] && break
   done
   # 3. Pilih nomor dari hasil filter
