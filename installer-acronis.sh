@@ -131,13 +131,13 @@ install_agent() {
     # >>> DEBUG variable filtered <<<
   printf '\n=== DEBUG ===\n'
   printf 'installers array  : %d item(s)\n' "${#installers[@]}"
-  printf 'filtered array    : %d item(s)\n' "${#filtered[@]}"
+  #printf 'filtered array    : %d item(s)\n' "${#filtered[@]}"
   printf 'BASE_URL          : %s\n' "$BASE_URL"
   printf 'keyword           : %s\n' "$keyword"
   printf 'installers content:\n'
   printf '%s\n' "${installers[@]}"
   printf 'filtered content:\n'
-  printf '%s\n' "${filtered[@]}"
+  #printf '%s\n' "${filtered[@]}"
   read -n1 -p "tekan enter untuk melanjutkan..."
 
   # ---------- LOOP FILTER + PILIH (plus highlight) ----------
