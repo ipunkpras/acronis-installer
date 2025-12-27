@@ -108,7 +108,7 @@ install_agent() {
   log_msg "User selected version: $VERSION"
 
   # 2. Scan daftar installer di folder versi
-  BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION"
+  BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION// /}"
   log_msg "Scanning installers at $BASE_URL ..."
   mapfile -t installers < <(wget -qO- "$BASE_URL/" |
                                grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
