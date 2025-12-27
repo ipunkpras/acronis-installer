@@ -128,7 +128,7 @@ install_agent() {
 
   # 5. Install
   log_msg "Running installer ..."
-  ."$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
+  "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
   local rc=$?
   if [[ $rc -eq 0 ]]; then
     success "Installation completed"
