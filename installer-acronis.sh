@@ -128,10 +128,7 @@ install_agent() {
     done
     printf '%s\n' "${filtered[@]}"
   }
-
-  # ---------- LOOP FILTER + PILIH (plus highlight) ----------
-  local filtered=("${installers[@]}")   # awalnya semua
-  # >>> DEBUG variable filtered <<<
+    # >>> DEBUG variable filtered <<<
   printf '\n=== DEBUG ===\n'
   printf 'installers array  : %d item(s)\n' "${#installers[@]}"
   printf 'filtered array    : %d item(s)\n' "${#filtered[@]}"
@@ -142,6 +139,9 @@ install_agent() {
   printf 'filtered content:\n'
   printf '%s\n' "${filtered[@]}"
   read -n1 -p "tekan enter untuk melanjutkan..."
+
+  # ---------- LOOP FILTER + PILIH (plus highlight) ----------
+  local filtered=("${installers[@]}")   # awalnya semua
   while true; do
     clear
     log "Available installers:" "$BOLD"
