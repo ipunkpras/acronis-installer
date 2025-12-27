@@ -115,10 +115,6 @@ install_agent() {
                                sort -V)
   [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
 
-  #####DEBUG
-  printf '%s\n' "${installers[@]}"   # lihat isi array
-read -n1 -p "arr len = ${#installers[@]}  (enter)"
-
   # ---------- FUNGSI FILTER + RAPIHKAN + HIGHLIGHT ----------
   filter_list() {
     local -n arr=$1        # nameref ke array installers
@@ -131,6 +127,9 @@ read -n1 -p "arr len = ${#installers[@]}  (enter)"
       [[ -z $filt ]] || [[ ${clean,,} == *"${filt,,}"* ]] && filtered+=("$clean")
     done
     printf '%s\n' "${filtered[@]}"
+      #####DEBUG
+  printf '%s\n' "${installers[@]}"   # lihat isi array
+read -n1 -p "arr len = ${#installers[@]}  (enter)"
   }
 
   # ---------- LOOP FILTER + PILIH (plus highlight) ----------
