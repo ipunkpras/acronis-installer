@@ -115,26 +115,22 @@ install_agent() {
                                sort -V)
   [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
 
-  # ---------- FUNGSI FILTER INLINE ----------
+  # ---------- FUNGSI FILTER + RAPIHKAN + HIGHLIGHT ----------
   filter_list() {
     local -n arr=$1        # nameref ke array installers
     local filt=$2
     local -a filtered=()
-    # jika filter kosong → tampilkan semua
-    if [[ -z $filt ]]; then
-      filtered=("${arr[@]}")
-    else
-      # case-insensitive filter
-      for item in "${arr[@]}"; do
-        [[ ${item,,} == *"${filt,,}"* ]] && filtered+=("$item")
-      done
-    fi
-    # keluarkan hasil filter
+    # normalisasi: hilangkan leading/trailing spasi & tab
+    for item in "${arr[@]}"; do
+      local clean
+      clean=$(echo "$item" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+      [[ -z $filt ]] || [[ ${clean,,} == *"${filt,,}"* ]] && filtered+=("$clean")
+    done
     printf '%s\n' "${filtered[@]}"
   }
 
-  # ---------- LOOP FILTER + PILIH ----------
-local filtered=("${installers[@]}")
+  # ---------- LOOP FILTER + PILIH (plus highlight) ----------
+  local filtered=("${installers[@]}")   # awalnya semua
   while true; do
     clear
     log "Available installers:" "$BOLD"
@@ -153,6 +149,7 @@ local filtered=("${installers[@]}")
     echo
     read -rp "Filter (keyword) or ENTER to show all, 0 to cancel: " keyword
     [[ $keyword == "0" ]] && return
+    # terapkan filter
     mapfile -t filtered < <(filter_list installers "$keyword")
     [[ ${#filtered[@]} -gt 0 ]] && break
   done
