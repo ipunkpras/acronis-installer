@@ -151,11 +151,12 @@ install_agent() {
     [[ $keyword == "0" ]] && return
     # terapkan filter
     mapfile -t filtered < <(filter_list installers "$keyword")
+     # >>> DEBUG VARIABLE filtered <<<
+  printf "DEBUG: filtered array (%d item)\n" "${#filtered[@]}"
+  printf '%s\n' "${filtered[@]}"
+  read -n1 -p "tekan enter untuk melanjutkan..."
     [[ ${#filtered[@]} -gt 0 ]] && break
   done
-         #####DEBUG
-printf '%s\n' "${filtered[@]}"   # lihat isi array
-read -n1 -p "arr len = ${filtered[@]}  (enter)"
   # 3. Pilih nomor dari hasil filter
   while true; do
     read -rp "Select installer number: " num
