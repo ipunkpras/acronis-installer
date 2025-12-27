@@ -131,9 +131,6 @@ install_agent() {
 
   # ---------- LOOP FILTER + PILIH (plus highlight) ----------
   local filtered=("${installers[@]}")   # awalnya semua
-        #####DEBUG
-printf '%s\n' "${filtered[@]}"   # lihat isi array
-read -n1 -p "arr len = ${filtered[@]}  (enter)"
   while true; do
     clear
     log "Available installers:" "$BOLD"
@@ -156,7 +153,9 @@ read -n1 -p "arr len = ${filtered[@]}  (enter)"
     mapfile -t filtered < <(filter_list installers "$keyword")
     [[ ${#filtered[@]} -gt 0 ]] && break
   done
-
+         #####DEBUG
+printf '%s\n' "${filtered[@]}"   # lihat isi array
+read -n1 -p "arr len = ${filtered[@]}  (enter)"
   # 3. Pilih nomor dari hasil filter
   while true; do
     read -rp "Select installer number: " num
