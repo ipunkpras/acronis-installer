@@ -116,7 +116,7 @@ install_agent() {
   REAL_USER=${SUDO_USER:-$USER}
   TMP=${TMP_DIR:-/home/$REAL_USER/acronis-installer}
   mkdir -p "$TMP"
-  BIN=$TMP/Backup_Agent_for_Linux_x86_64.bin
+  BIN=Backup_Agent_for_Linux_x86_64.bin
   URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$BIN"
 
   # 4. Download
