@@ -89,9 +89,9 @@ show_main_menu() {
 }
 
 ###############  INSTALL AGENT  ################
+###############  INSTALL AGENT  ################
 install_agent() {
   local LOG="/var/log/acronis-install-$(hostname)-$(date +%F-%H-%M).log"
-  # helper: catat log + terminal
   log_msg() { echo -e "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
 
   log_msg "=== Acronis Agent Installation Started ==="
@@ -107,26 +107,51 @@ install_agent() {
   VERSION=$v
   log_msg "User selected version: $VERSION"
 
-  # 2. Token
+  # 2. Scan daftar installer di folder versi
+  BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION"
+  log_msg "Scanning installers at $BASE_URL ..."
+  mapfile -t installers < <(wget -qO- "$BASE_URL/" |
+                               grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
+                               sort -V)
+  [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
+
+  # Tampilkan daftar bernomor
+  log "Available installers:" "$BOLD"
+  local i=1
+  for f in "${installers[@]}"; do
+    printf " $CYAN[%2d]$RESET %s\n" "$i" "$f"
+    ((i++))
+  done
+  echo
+  while true; do
+    read -rp "Select installer number: " num
+    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#installers[@]} )) && break
+    warn "Enter number between 1 and ${#installers[@]}"
+  done
+  INSTALLER="${installers[$((num-1))]}"
+  log_msg "User selected installer: $INSTALLER"
+
+  # 3. Token
   read -rp "Registration Token: " TOKEN
   [[ -z $TOKEN ]] && { error "Token required"; return; }
   log_msg "Token accepted (hidden)"
 
-  # 3. Folder & nama file
+  # 4. Folder & path download
   REAL_USER=${SUDO_USER:-$USER}
-  TMP=${TMP_DIR:-/home/$REAL_USER/acronis-installer}
+  REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+  TMP=${TMP_DIR:-$REAL_HOME/acronis-installer}
   mkdir -p "$TMP"
-  BIN=Backup_Agent_for_Linux_x86_64.bin
-  URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/$VERSION/$BIN"
+  BIN=$TMP/$INSTALLER
+  URL="$BASE_URL/$INSTALLER"
 
-  # 4. Download
+  # 5. Download
   log_msg "Downloading installer to $BIN ..."
   (wget -qO "$BIN" "$URL" 2>&1 | tee -a "$LOG") & spinner $! "Downloading"
   [[ -f $BIN ]] || { error "Download failed"; log_msg "Download failed"; return; }
   chmod +x "$BIN"
   log_msg "Download completed"
 
-  # 5. Install
+  # 6. Install
   log_msg "Running installer ..."
   "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
   local rc=$?
@@ -139,7 +164,7 @@ install_agent() {
     return 1
   fi
 
-  # 6. Hapus installer opsional
+  # 7. Hapus installer opsional
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
     rm -rf "$TMP"
