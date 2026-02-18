@@ -30,7 +30,7 @@ This script is designed to manage the installation and uninstallation of **Acron
 3. **Run the Script**:
    - To run the script, use the following command:
      ```bash
-     sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/Bash-Script-Collection-for-Linux-OS/refs/heads/main/installation-script/snmp/snmp-install.sh)"
+     sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/refs/heads/main/installer-acronis.sh)"
      ```
 
    - The script will display a menu with options to choose from.
