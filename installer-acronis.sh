@@ -255,15 +255,30 @@ check_services() {
 }
 
 ##############  CVT TOOL  #####################
+##############  CVT TOOL  #####################
 run_cvt_tool() {
+  local output_file="/tmp/cvt_$(hostname)_$(date +%F).log"
+  
   info "Downloading CVT..."
-  wget -qO /tmp/Linux64.zip https://dl.acronis.com/u/support/KB/Linux64.zip 
+  wget -qO /tmp/Linux64.zip https://dl.acronis.com/u/support/KB/Linux64.zip  
   check_and_install_unzip
   unzip -q /tmp/Linux64.zip -d /tmp/cvt_tool
   chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
+  
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  info "Output file will be saved to: $output_file"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  
   read -rp "Login: " LOGIN
-  /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id | tee "/tmp/cvt_$(hostname)_$(date +%F).log"
+  /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id | tee "$output_file"
+  
+  echo ""
   success "CVT finished"
+  info "Log file saved at: $output_file"
+  echo ""
+  
   pause
 }
 
