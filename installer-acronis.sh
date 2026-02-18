@@ -46,26 +46,45 @@ spinner() {
 ##############  MENU DRAWER  ##################
 draw_box() {
   local -a lines=("$@")
-  local edge="╭─$(printf '─%.0s' {1..50})─╮"
-  printf "%b\n" "$CYAN$edge$RESET"
+  local width=44 
+  
+  display_width() {
+    local str="$1"
+   
+    local clean=$(echo -e "$str" | sed 's/\x1b\[[0-9;]*m//g')
+    local char_count=$(echo -n "$clean" | wc -m)
+
+    if [[ "$clean" == *"🛡️"* ]]; then
+      char_count=$((char_count - 1))
+    fi
+    echo "$char_count"
+  }
+  
+  local border=$(printf '─%.0s' $(seq 1 $width))
+  printf "%b╭─%s─╮%b\n" "$CYAN" "$border" "$RESET"
+  
   for ln in "${lines[@]}"; do
-    printf "│ %-50s │\n" "$ln"
+    local content_width=$(display_width "$ln")
+    local pad=$((width - content_width))
+    [[ $pad -lt 0 ]] && pad=0
+    
+    printf "%b│%b %s%*s%b │%b\n" "$CYAN" "$RESET" "$ln" "$pad" "" "$CYAN" "$RESET"
   done
-  printf "%b╰─%s─╯%b\n" "$CYAN" "$(printf '─%.0s' {1..50})" "$RESET"
+  
+  printf "%b╰─%s─╯%b\n" "$CYAN" "$border" "$RESET"
 }
 
 ##############  MAIN MENU  ####################
 show_main_menu() {
   clear
   draw_box \
-    "  🛡️  Acronis Cyber Protect Agent Installer  " \
-    "  v2.0  |  Datacomm Cloud  |  JKT,ID 2025  "
+    '🛡️   Acronis Cyber Protect Agent Tools' \
+    'v2.0 • https://dcloud.co.id  • JKT,ID 2025'
   echo
   log "Choose action:" "$BOLD"
 
-  # Cetak manual tanpa column -----------
   printf " $GREEN[1] Install Agent     $YELLOW(i)$RESET\n"
-  printf " $RED[2] Uninstall         $YELLOW(u)$RESET\n"
+  printf " $RED[2] Uninstall Agent   $YELLOW(u)$RESET\n"
   printf " $BLUE[3] Check Services    $YELLOW(s)$RESET\n"
   printf " $MAGENTA[4] acropsh Tool      $YELLOW(a)$RESET\n"
   printf " $CYAN[5] CVT Tool          $YELLOW(c)$RESET\n"
@@ -87,8 +106,6 @@ show_main_menu() {
     *)   warn "Invalid choice"; sleep 1; show_main_menu ;;
   esac
 }
-
-###############  INSTALL AGENT  ################
 ###############  INSTALL AGENT  ################
 install_agent() {
   local LOG="/var/log/acronis-install-$(hostname)-$(date +%F-%H-%M).log"
@@ -96,82 +113,73 @@ install_agent() {
 
   log_msg "=== Acronis Agent Installation Started ==="
 
-  # 1. Pilih versi
-  log_msg "Fetching available versions ..."
-  mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/ |
-                        grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
-  [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; return; }
+# 1. Pilih versi
+log_msg "Fetching available versions ..."
+mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/  |
+                      grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
+[[ ${#vers[@]} -eq 0 ]] && { error "No version found"; return; }
 
-  log_msg "Available versions: ${vers[*]}"
-  select v in "${vers[@]}"; do [[ -n $v ]] && break; done
-  VERSION=$v
-  log_msg "User selected version: $VERSION"
+echo "Available versions:"
+for i in "${!vers[@]}"; do
+    echo "  $((i+1)). ${vers[$i]}"
+done
 
-  # 2. Scan daftar installer di folder versi
-  BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION// /}"
-  log_msg "Scanning installers at $BASE_URL ..."
-  mapfile -t installers < <(wget -qO- "$BASE_URL/" |
-                               grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
-                               sort -V)
-  [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
+while true; do
+    read -rp "Select version number: " num
+    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
+    warn "Enter number between 1 and ${#vers[@]}"
+done
+VERSION="${vers[$((num-1))]}"
+log_msg "User selected version: $VERSION"
 
-  # ---------- FUNGSI FILTER + RAPIHKAN + HIGHLIGHT ----------
-  filter_list() {
-    local -n arr=$1        # nameref ke array installers
-    local filt=$2
-    local -a filtered=()
-    # normalisasi: hilangkan leading/trailing spasi & tab
-    for item in "${arr[@]}"; do
-      local clean
-      clean=$(echo "$item" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-      [[ -z $filt ]] || [[ ${clean,,} == *"${filt,,}"* ]] && filtered+=("$clean")
-    done
-    printf '%s\n' "${filtered[@]}"
-  }
-    # >>> DEBUG variable filtered <<<
-  printf '\n=== DEBUG ===\n'
-  printf 'installers array  : %d item(s)\n' "${#installers[@]}"
-  #printf 'filtered array    : %d item(s)\n' "${#filtered[@]}"
-  printf 'BASE_URL          : %s\n' "$BASE_URL"
-  printf 'keyword           : %s\n' "$keyword"
-  printf 'installers content:\n'
-  printf '%s\n' "${installers[@]}"
-  printf 'filtered content:\n'
-  #printf '%s\n' "${filtered[@]}"
-  read -n1 -p "tekan enter untuk melanjutkan..."
+# 2. Scan daftar installer di folder versi
+BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION}"
+log_msg "Scanning installers at $BASE_URL ..."
+mapfile -t installers < <(wget -qO- "$BASE_URL/" |
+                             grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
+                             sort -V)
+[[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
 
-  # ---------- LOOP FILTER + PILIH (plus highlight) ----------
-  local filtered=("${installers[@]}")   # awalnya semua
-  while true; do
-    clear
-    log "Available installers:" "$BOLD"
-    local i=1
-    local found=0
-    for f in "${filtered[@]}"; do
-      # bersihkan spasi
-      local clean; clean=$(echo "$f" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-      # highlight kata kunci (opsional)
-      local display
-      display=$(echo "$clean" | sed -E "s/(${keyword})/${YELLOW}\1${RESET}/gi")
-      printf "   $CYAN[%2d]$RESET %s\n" "$i" "$display"
-      ((i++)); ((found++))
-    done
-    [[ $found -eq 0 ]] && { warn "No match, try again."; }
-    echo
-    read -rp "Filter (keyword) or ENTER to show all, 0 to cancel: " keyword
-    [[ $keyword == "0" ]] && return
-    # terapkan filter
-    mapfile -t filtered < <(filter_list installers "$keyword")
-    [[ ${#filtered[@]} -gt 0 ]] && break
-  done
-  # 3. Pilih nomor dari hasil filter
-  while true; do
+# 3. FILTER: Input keyword dari user
+echo ""
+echo "Available installers (${#installers[@]} total):"
+for i in "${!installers[@]}"; do
+    echo "  $((i+1)). ${installers[$i]}"
+done
+
+echo ""
+read -rp "Enter filter keyword (or press Enter to show all): " keyword
+
+# Filter installer berdasarkan keyword (case-insensitive)
+if [[ -n "$keyword" ]]; then
+    mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword")
+    if [[ ${#filtered[@]} -eq 0 ]]; then
+        warn "No installer matches keyword '$keyword', showing all installers"
+        filtered=("${installers[@]}")
+    else
+        log_msg "Filtered by keyword '$keyword': ${#filtered[@]} result(s)"
+    fi
+else
+    filtered=("${installers[@]}")
+fi
+
+# Tampilkan hasil filter
+echo ""
+echo "Filtered installers (${#filtered[@]} found):"
+for i in "${!filtered[@]}"; do
+    echo "  $((i+1)). ${filtered[$i]}"
+done
+
+# 4. Pilih nomor dari hasil filter
+[[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; return; }
+
+while true; do
     read -rp "Select installer number: " num
     [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
     warn "Enter number between 1 and ${#filtered[@]}"
-  done
-  INSTALLER="${filtered[$((num-1))]}"
-  log_msg "User selected installer: $INSTALLER"
+done
+INSTALLER="${filtered[$((num-1))]}"
+log_msg "User selected installer: $INSTALLER"
 
   # 4. Token
   read -rp "Registration Token: " TOKEN
