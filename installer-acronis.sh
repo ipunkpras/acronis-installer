@@ -1,6 +1,5 @@
 #!/bin/bash
 # v2.0  Acronis Cyber Protect Agent Installer
-# Docker-Compose-like TUI (bash only)
 
 set -euo pipefail
 
@@ -39,8 +38,6 @@ spinner() {
   done
   printf "\r"
 }
-
-# Fungsi pause - tunggu user tekan key sebelum kembali ke menu
 pause() {
   echo
   read -n 1 -rp "$(echo -e "${YELLOW}Press any key to return to menu...${RESET}")" 
@@ -120,7 +117,7 @@ install_agent() {
 
   log_msg "=== Acronis Agent Installation Started ==="
 
-  # 1. Pilih versi
+  # 1. choose version
   log_msg "Fetching available versions ..."
   mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/   |
                         grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
@@ -139,7 +136,7 @@ install_agent() {
   VERSION="${vers[$((num-1))]}"
   log_msg "User selected version: $VERSION"
 
-  # 2. Scan daftar installer di folder versi
+  # 2. Scanning list installer
   BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION}"
   log_msg "Scanning installers at $BASE_URL ..."
   mapfile -t installers < <(wget -qO- "$BASE_URL/" |
@@ -147,7 +144,7 @@ install_agent() {
                                sort -V)
   [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; pause; return; }
 
-  # 3. FILTER: Input keyword dari user
+  # 3. FILTER: Input keyword from user
   echo ""
   echo "Available installers (${#installers[@]} total):"
   for i in "${!installers[@]}"; do
@@ -157,7 +154,7 @@ install_agent() {
   echo ""
   read -rp "Enter filter keyword (or press Enter to show all): " keyword
 
-  # Filter installer berdasarkan keyword (case-insensitive)
+  # Filter installer
   if [[ -n "$keyword" ]]; then
       mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword")
       if [[ ${#filtered[@]} -eq 0 ]]; then
@@ -170,14 +167,14 @@ install_agent() {
       filtered=("${installers[@]}")
   fi
 
-  # Tampilkan hasil filter
+  # Show filtered data
   echo ""
   echo "Filtered installers (${#filtered[@]} found):"
   for i in "${!filtered[@]}"; do
       echo "  $((i+1)). ${filtered[$i]}"
   done
 
-  # 4. Pilih nomor dari hasil filter
+  # 4. choose filtered installer
   [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return; }
 
   while true; do
@@ -222,7 +219,7 @@ install_agent() {
     return 1
   fi
 
-  # 9. Hapus installer opsional
+  # 9. delete installer (Optional)
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
     rm -rf "$TMP"
