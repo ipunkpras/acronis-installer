@@ -40,6 +40,13 @@ spinner() {
   printf "\r"
 }
 
+# Fungsi pause - tunggu user tekan key sebelum kembali ke menu
+pause() {
+  echo
+  read -n 1 -rp "$(echo -e "${YELLOW}Press any key to return to menu...${RESET}")" 
+  echo
+}
+
 ##############  PRE-CHECK  ####################
 [[ $EUID -ne 0 ]] && { error "Please run as root"; exit 1; }
 
@@ -79,7 +86,7 @@ show_main_menu() {
   clear
   draw_box \
     '🛡️   Acronis Cyber Protect Agent Tools' \
-    'v2.0 • https://dcloud.co.id  • JKT,ID 2025'
+    'v2.0 • https://dcloud.co.id   • JKT,ID 2025'
   echo
   log "Choose action:" "$BOLD"
 
@@ -103,7 +110,7 @@ show_main_menu() {
     c|5) run_cvt_tool ;;
     l|6) cleanup ;;
     q|0) log "Bye!" "$GREEN"; exit 0 ;;
-    *)   warn "Invalid choice"; sleep 1; show_main_menu ;;
+    *)   warn "Invalid choice"; sleep 1 ;;
   esac
 }
 ###############  INSTALL AGENT  ################
@@ -113,80 +120,80 @@ install_agent() {
 
   log_msg "=== Acronis Agent Installation Started ==="
 
-# 1. Pilih versi
-log_msg "Fetching available versions ..."
-mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/  |
-                      grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
-[[ ${#vers[@]} -eq 0 ]] && { error "No version found"; return; }
+  # 1. Pilih versi
+  log_msg "Fetching available versions ..."
+  mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/   |
+                        grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
+  [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; pause; return; }
 
-echo "Available versions:"
-for i in "${!vers[@]}"; do
-    echo "  $((i+1)). ${vers[$i]}"
-done
+  echo "Available versions:"
+  for i in "${!vers[@]}"; do
+      echo "  $((i+1)). ${vers[$i]}"
+  done
 
-while true; do
-    read -rp "Select version number: " num
-    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
-    warn "Enter number between 1 and ${#vers[@]}"
-done
-VERSION="${vers[$((num-1))]}"
-log_msg "User selected version: $VERSION"
+  while true; do
+      read -rp "Select version number: " num
+      [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
+      warn "Enter number between 1 and ${#vers[@]}"
+  done
+  VERSION="${vers[$((num-1))]}"
+  log_msg "User selected version: $VERSION"
 
-# 2. Scan daftar installer di folder versi
-BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION}"
-log_msg "Scanning installers at $BASE_URL ..."
-mapfile -t installers < <(wget -qO- "$BASE_URL/" |
-                             grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
-                             sort -V)
-[[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; return; }
+  # 2. Scan daftar installer di folder versi
+  BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION}"
+  log_msg "Scanning installers at $BASE_URL ..."
+  mapfile -t installers < <(wget -qO- "$BASE_URL/" |
+                               grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
+                               sort -V)
+  [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; pause; return; }
 
-# 3. FILTER: Input keyword dari user
-echo ""
-echo "Available installers (${#installers[@]} total):"
-for i in "${!installers[@]}"; do
-    echo "  $((i+1)). ${installers[$i]}"
-done
+  # 3. FILTER: Input keyword dari user
+  echo ""
+  echo "Available installers (${#installers[@]} total):"
+  for i in "${!installers[@]}"; do
+      echo "  $((i+1)). ${installers[$i]}"
+  done
 
-echo ""
-read -rp "Enter filter keyword (or press Enter to show all): " keyword
+  echo ""
+  read -rp "Enter filter keyword (or press Enter to show all): " keyword
 
-# Filter installer berdasarkan keyword (case-insensitive)
-if [[ -n "$keyword" ]]; then
-    mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword")
-    if [[ ${#filtered[@]} -eq 0 ]]; then
-        warn "No installer matches keyword '$keyword', showing all installers"
-        filtered=("${installers[@]}")
-    else
-        log_msg "Filtered by keyword '$keyword': ${#filtered[@]} result(s)"
-    fi
-else
-    filtered=("${installers[@]}")
-fi
+  # Filter installer berdasarkan keyword (case-insensitive)
+  if [[ -n "$keyword" ]]; then
+      mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword")
+      if [[ ${#filtered[@]} -eq 0 ]]; then
+          warn "No installer matches keyword '$keyword', showing all installers"
+          filtered=("${installers[@]}")
+      else
+          log_msg "Filtered by keyword '$keyword': ${#filtered[@]} result(s)"
+      fi
+  else
+      filtered=("${installers[@]}")
+  fi
 
-# Tampilkan hasil filter
-echo ""
-echo "Filtered installers (${#filtered[@]} found):"
-for i in "${!filtered[@]}"; do
-    echo "  $((i+1)). ${filtered[$i]}"
-done
+  # Tampilkan hasil filter
+  echo ""
+  echo "Filtered installers (${#filtered[@]} found):"
+  for i in "${!filtered[@]}"; do
+      echo "  $((i+1)). ${filtered[$i]}"
+  done
 
-# 4. Pilih nomor dari hasil filter
-[[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; return; }
+  # 4. Pilih nomor dari hasil filter
+  [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return; }
 
-while true; do
-    read -rp "Select installer number: " num
-    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
-    warn "Enter number between 1 and ${#filtered[@]}"
-done
-INSTALLER="${filtered[$((num-1))]}"
-log_msg "User selected installer: $INSTALLER"
+  while true; do
+      read -rp "Select installer number: " num
+      [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
+      warn "Enter number between 1 and ${#filtered[@]}"
+  done
+  INSTALLER="${filtered[$((num-1))]}"
+  log_msg "User selected installer: $INSTALLER"
 
-  # 4. Token
+  # 5. Token
   read -rp "Registration Token: " TOKEN
-  [[ -z $TOKEN ]] && { error "Token required"; return; }
+  [[ -z $TOKEN ]] && { error "Token required"; pause; return; }
   log_msg "Token accepted (hidden)"
 
-  # 5. Folder & path download
+  # 6. Folder & path download
   REAL_USER=${SUDO_USER:-$USER}
   REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
   TMP=${TMP_DIR:-$REAL_HOME/acronis-installer}
@@ -194,14 +201,14 @@ log_msg "User selected installer: $INSTALLER"
   BIN=$TMP/$INSTALLER
   URL="$BASE_URL/$INSTALLER"
 
-  # 6. Download
+  # 7. Download
   log_msg "Downloading installer to $BIN ..."
   (wget -qO "$BIN" "$URL" 2>&1 | tee -a "$LOG") & spinner $! "Downloading"
-  [[ -f $BIN ]] || { error "Download failed"; log_msg "Download failed"; return; }
+  [[ -f $BIN ]] || { error "Download failed"; log_msg "Download failed"; pause; return; }
   chmod +x "$BIN"
   log_msg "Download completed"
 
-  # 7. Install
+  # 8. Install
   log_msg "Running installer ..."
   "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
   local rc=$?
@@ -211,10 +218,11 @@ log_msg "User selected installer: $INSTALLER"
   else
     error "Installation failed (exit $rc)"
     log_msg "Installation failed (exit $rc)"
+    pause
     return 1
   fi
 
-  # 8. Hapus installer opsional
+  # 9. Hapus installer opsional
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
     rm -rf "$TMP"
@@ -224,12 +232,14 @@ log_msg "User selected installer: $INSTALLER"
   fi
 
   log_msg "=== Installation Finished ==="
+  pause
 }
 ##############  UNINSTALL  ####################
 uninstall_agent() {
   warn "Starting uninstall..."
   /usr/lib/Acronis/BackupAndRecovery/uninstall/uninstall -a & spinner $! "Uninstalling"
   success "Uninstall finished"
+  pause
 }
 
 ##############  SERVICE CHECK  ################
@@ -241,29 +251,31 @@ check_services() {
       error "$svc is NOT running"
     fi
   done
-  read -n 1 -rp "Press any key to continue..."
+  pause
 }
 
 ##############  CVT TOOL  #####################
 run_cvt_tool() {
   info "Downloading CVT..."
-  wget -qO /tmp/Linux64.zip https://dl.acronis.com/u/support/KB/Linux64.zip
+  wget -qO /tmp/Linux64.zip https://dl.acronis.com/u/support/KB/Linux64.zip 
   check_and_install_unzip
   unzip -q /tmp/Linux64.zip -d /tmp/cvt_tool
   chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
   read -rp "Login: " LOGIN
   /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id | tee "/tmp/cvt_$(hostname)_$(date +%F).log"
   success "CVT finished"
+  pause
 }
 
 ##############  ACROPSH  ######################
 run_acropsh() {
   info "Downloading acropsh..."
-  wget -qO /tmp/acropsh.zip 'https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1'
+  wget -qO /tmp/acropsh.zip 'https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1 '
   check_and_install_unzip
   unzip -q /tmp/acropsh.zip -d /tmp/acropsh
   python3 /tmp/acropsh/linux_installation_healthcheck/main.py
   success "acropsh finished"
+  pause
 }
 
 ##############  CLEANUP  ######################
@@ -272,6 +284,7 @@ cleanup() {
   mapfile -t tmp < <(find /tmp -maxdepth 1 -type f -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name '*.zip' -o -name 'Linux64.zip')
   for f in "${tmp[@]}"; do rm -f "$f" && printf "."; done
   success "Cleanup done"
+  pause
 }
 
 ##############  UNZIP HELPER  #################
