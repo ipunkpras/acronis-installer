@@ -269,12 +269,87 @@ run_cvt_tool() {
 
 ##############  ACROPSH  ######################
 run_acropsh() {
+  local acropsh_url='https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1'
+  local zip_file="/tmp/acropsh_$(date +%s).zip"
+  local extract_dir="/tmp/acropsh_$(date +%s)"
+  
   info "Downloading acropsh..."
-  wget -qO /tmp/acropsh.zip 'https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1 '
+  
+  # Download dengan follow redirect
+  if ! wget -L --max-redirect=5 -O "$zip_file" "$acropsh_url" 2>/dev/null; then
+    error "Failed to download acropsh"
+    rm -f "$zip_file"
+    pause
+    return 1
+  fi
+  
+  # Validasi file ZIP
+  if ! file "$zip_file" | grep -q "Zip archive"; then
+    error "Downloaded file is not a valid ZIP"
+    rm -f "$zip_file"
+    pause
+    return 1
+  fi
+  
   check_and_install_unzip
-  unzip -q /tmp/acropsh.zip -d /tmp/acropsh
-  python3 /tmp/acropsh/linux_installation_healthcheck/main.py
-  success "acropsh finished"
+  
+  # Extract
+  mkdir -p "$extract_dir"
+  if ! unzip -q "$zip_file" -d "$extract_dir" 2>&1; then
+    error "Failed to extract ZIP"
+    rm -rf "$zip_file" "$extract_dir"
+    pause
+    return 1
+  fi
+  
+  # Cari direktori hasil extract (biasanya ada subfolder)
+  local target_dir=$(find "$extract_dir" -name "linux_installation_healthcheck" -type d 2>/dev/null | head -n1)
+  
+  # Jika tidak ketemu, cek isi extract_dir
+  if [[ -z "$target_dir" ]]; then
+    # Mungkin langsung isi tanpa subfolder
+    if [[ -f "$extract_dir/linuxAgentChecks.py" ]]; then
+      target_dir="$extract_dir"
+    else
+      # List isi untuk debug
+      error "Struktur folder tidak sesuai. Isi extract:"
+      find "$extract_dir" -type f | head -10
+      rm -rf "$zip_file" "$extract_dir"
+      pause
+      return 1
+    fi
+  fi
+  
+  info "Running acropsh from: $target_dir"
+  
+  # Jalankan dari direktori yang benar
+  cd "$target_dir" || { error "Cannot cd to $target_dir"; pause; return 1; }
+  
+  # Cek apakah ada main.py atau linuxAgentChecks.py
+  if [[ -f "main.py" ]]; then
+    python3 main.py
+  elif [[ -f "linuxAgentChecks.py" ]]; then
+    python3 linuxAgentChecks.py
+  else
+    error "No main.py or linuxAgentChecks.py found"
+    ls -la
+    cd - >/dev/null
+    rm -rf "$zip_file" "$extract_dir"
+    pause
+    return 1
+  fi
+  
+  local rc=$?
+  cd - >/dev/null  # Kembali ke direktori sebelumnya
+  
+  if [[ $rc -eq 0 ]]; then
+    success "acropsh finished"
+  else
+    error "acropsh failed with exit code $rc"
+  fi
+  
+  # Cleanup
+  rm -rf "$zip_file" "$extract_dir"
   pause
 }
 
