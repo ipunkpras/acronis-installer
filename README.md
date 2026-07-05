@@ -1,77 +1,77 @@
-# Acronis Cyber Protect Agent Installation Script
+## 🛡️ Acronis Cyber Protect Agent Installer Tools (v2.0)
 
-This script is designed to manage the installation and uninstallation of **Acronis Cyber Protect Agent** on Linux systems. It provides functionalities to check the status of required services, install missing dependencies like `unzip`, and run the `acropsh` tool for Datacomm Cloud Backup. The script includes a menu for selecting the desired action and supports version selection for the Acronis agent installation.
+Script Bash interaktif berbasis menu untuk mempermudah instalasi, uninstal, pengecekan layanan, serta pemecahan masalah (*troubleshooting*) Acronis Cyber Protect Agent pada sistem operasi Linux.
 
-## Features
-- **Install the Acronis Cyber Protect Agent**: Install the agent on Linux systems by specifying the desired version and providing a registration token.
-- **Uninstall the Acronis Cyber Protect Agent**: Uninstall the Acronis agent if it is already installed.
-- **Check the status of Acronis services**: Checks if `aakore` and `acronis_mms` services are running and reports their status.
-- **Run `acropsh` tool**: Install and run the `acropsh` tool for Datacomm Cloud Backup health checks.
-- **Run CVT Tool**: Verifies the connection to Acronis Cloud using the Linux Connection Verification Tool (CVT).
-- **Check and install missing dependencies**: Ensures required packages like `unzip` and `python3` are available and installs them if missing.
-- **Cleanup temporary files**: Removes downloaded installation files and logs after the process is complete to maintain a clean environment.
+### 📋 Fitur Utama
 
-## Requirements
-- **Root access**: The script must be run with root privileges to install/uninstall the Acronis agent and manage services.
-- **Python 3**: The script checks for Python 3 installation, and installs it if not present.
-- **`unzip`**: The script checks if `unzip` is installed before extracting `.zip` files. If it's missing, the script will prompt the user to install it.
+* **Interactive Menu**: Navigasi mudah menggunakan angka atau tombol pintas (*shortcut*).
+* **Dynamic Installer Picker**: Mengambil daftar versi dan file installer langsung dari repositori resmi Datacomm secara *real-time*.
+* **Smart Filter**: Fitur pencarian installer menggunakan kata kunci (*keyword*) tertentu.
+* **Layanan Mandiri (Self-contained Tools)**: Terintegrasi dengan alat diagnosis seperti **CVT Tool** dan **acropsh Tool**.
+* **Visual Friendly**: Dilengkapi dengan indikator warna, *spinner*, dan *progress bar* untuk memantau proses.
 
-## Installation
+### 🛠️ Persyaratan Sistem
 
-1. **Clone or Download the Script**:
-   - Download or clone this repository to your server or Linux machine.
+Sebelum menjalankan script ini, pastikan sistem Anda memenuhi kriteria berikut:
 
-2. **Make the Script Executable**:
-   - Navigate to the directory containing the script and run:
-     ```bash
-     chmod +x installer-acronis.sh
-     ```
 
-3. **Run the Script**:
-   - To run the script, use the following command:
-     ```bash
-     sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/refs/heads/main/installer-acronis.sh)"
-     ```
+1. **Sistem Operasi**: Linux (Ubuntu, Debian, CentOS, RHEL, Rocky Linux, AlmaLinux, SLES).
+2. **Hak Akses**: Harus dijalankan sebagai pengguna **root** (`sudo`).
+3. **Koneksi Internet**: Diperlukan untuk mengunduh installer Acronis dan alat bantu lainnya.
+4. **Paket Pendukung**: `wget`, `python3` (untuk acropsh), dan `unzip` (akan diinstal otomatis jika belum ada).
+5. **Credential Portal Acronis**: Hanya compatible untuk portal backup acronis PT. Datacomm Diangraha “http://cloudbackup.datacomm.co.id“
 
-   - The script will display a menu with options to choose from.
+### 🚀 Cara Penggunaan
 
-## Menu Options
+#### 1. :runner:Jalankan Script
 
-Once the script is executed, the following menu will be displayed:
+```bash
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/refs/heads/main/installer-acronis.sh)"
+```
 
-1. **[1] Install Acronis Agent**:
-   - Starts the installation of the Acronis Cyber Protect Agent.
-   - You can select the version of the agent to install from a list of available versions.
+### 📖 Panduan Menu Navigasi
 
-2. **[2] Uninstall Acronis Agent**:
-   - Uninstalls the Acronis Cyber Protect Agent if it is already installed.
+Setelah script berjalan, Anda akan melihat menu interaktif. Anda dapat memilih menu dengan mengetik **Angka** atau **Huruf Pintas (dalam tanda kurung)** lalu tekan `Enter`.
 
-3. **[3] Check Acronis Services**:
-   - Checks and reports the status of the `aakore` and `acronis_mms` services. It will display whether each service is running or not.
+#### \[1\] Install Agent `(i)`
 
-4. **[4] Run acropsh Tool**:
-   - Runs the `acropsh` tool to check the health and status of the Acronis installation.
-   - This requires Python 3 to be installed, and the script will handle installation if necessary.
+Digunakan untuk memasang Acronis Agent baru ke sistem. Prosesnya meliputi:
 
-5. **[5] Run CVT Tool**:
-   - Runs the **Linux Connection Verification Tool (CVT)** to ensure the connection to Acronis Cloud is working properly.
-   - The script checks if `unzip` is installed before extracting the `.zip` file for CVT.
 
-6. **[6] Cleanup Temporary Files**:
-   - Cleans up temporary files and folders generated during the installation process, such as downloaded installer files and log files.
+1. Script otomatis mengambil daftar versi yang tersedia dari cloud backup Datacomm.
+2. Pilih nomor versi yang diinginkan.
+3. *(Opsional)* Masukkan kata kunci untuk memfilter nama file installer (contoh: ketik `cyber` atau `linux`).
+4. Pilih nomor file installer `.bin` yang sesuai.
+5. Masukkan **Registration Token** akun Acronis Anda.
+6. Script akan mengunduh dan menginstal agen secara otomatis.
+7. Di akhir proses, Anda akan diberikan pilihan untuk menghapus file mentahan installer atau menyimpannya.
 
-7. **[0] Cancel / Exit**:
-   - Exits the script without performing any actions.
+> 📄 **Catatan**: Semua log proses instalasi akan disimpan di `/var/log/acronis-install-[NAMA_HOSTNAME]-[TANGGAL].log`.
 
-## Example Usage
+#### \[2\] Uninstall Agent `(u)`
 
-1. **Start the script**:
-   ```bash
-   sudo ./installer-acronis.sh
+Menghapus instalasi Acronis Agent dari sistem secara bersih (*clean uninstall*) menggunakan uninstaller bawaan Acronis.
 
-## Notes
+#### \[3\] Check Services `(s)`
 
-- The script checks for the availability of the required unzip and python3 packages. If they are missing, the script will prompt you to install them using the default package manager for your Linux distribution (e.g., apt, yum, dnf, or zypper).
+Memeriksa status dari dua layanan utama Acronis di sistem: `aakore` dan `acronis_mms`. Script akan menampilkan indikator berwarna hijau jika berjalan aktif, atau merah jika berhenti.
 
-- Temporary files generated during the installation process are cleaned up after the script finishes. You can choose to delete the installer files manually after installation if you prefer.
-- 
+#### \[4\] acropsh Tool `(a)`
+
+Mengunduh dan menjalankan tool diagnostik kesehatan agen Linux (`linuxAgentChecks.py` / `main.py`) langsung dari repositori dukungan Acronis untuk menganalisis masalah internal pada agen.
+
+#### \[5\] CVT Tool `(c)`
+
+Mengunduh dan menjalankan **MSP Port Checker** (`msp_port_checker_packed.exe` via Linux) untuk mendiagnosis apakah port koneksi ke `cloudbackup.datacomm.co.id` terbuka dan aman. Anda akan diminta memasukkan *Login ID* Acronis Anda.
+
+> 📄 **Catatan**: Hasil pengecekan port akan disimpan otomatis di `/tmp/cvt_[NAMA_HOSTNAME]_[TANGGAL].log`.
+
+#### \[6\] Cleanup Tmp `(l)`
+
+Membersihkan file-file sampah sementara di direktori `/tmp` yang dihasilkan oleh CVT Tool atau acropsh (seperti file `.zip` dan file `.log` lama) agar tidak memenuhi ruang penyimpanan.
+
+#### \[0\] Exit `(q)`
+
+Keluar dari aplikasi dan kembali ke terminal biasa.
+
+💡 *Dibuat dan dikembangkan untuk lingkungan infrastruktur dcloud.co.id (Datacomm Cloud Business).*
