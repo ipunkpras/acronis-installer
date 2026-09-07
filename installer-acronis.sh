@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.2.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.3.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.3.0 — changes (on top of 2.0.0 fixes):
+#  - acropsh: fix 401 download — two-step SharePoint fetch (visit page for
+#    session cookie, then download with it). Manual /tmp/acropsh.zip fallback kept.
 # 2.2.1 — changes (on top of 2.0.0 fixes):
 #  - CVT: password now read hidden by bash (read -s) and piped to CVT
 #    stdin — packed binary re-enables echo itself, stty -echo was not enough
@@ -377,15 +380,24 @@ run_cvt_tool() {
 
 ##############  ACROPSH  ######################
 run_acropsh() {
-  # NOTE: link SharePoint eksternal sering balas 401 utk wget/curl anonim.
-  # Fallback: download manual via browser → simpan /tmp/acropsh.zip → ulang menu ini.
-  local acropsh_url='https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1'
+  # Official source (KB 67276). SharePoint rejects anonymous direct downloads
+  # with 401 unless the share page was visited first (session cookie).
+  # 2.3.0: two-step download — browse page first to collect the cookie, then fetch.
+  local acropsh_url='https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA'
+  local share_ua='Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
+  local cookiejar; cookiejar=$(mktemp)
   local zip_file="/tmp/acropsh_$(date +%s).zip"
   local extract_dir="/tmp/acropsh_x_$(date +%s)"
 
-  info "Downloading acropsh..."
+  info "Downloading acropsh (2-step SharePoint auth)..."
+  # step 1: visit the share page to obtain the session cookie
+  curl -sL --max-time 60 -A "$share_ua" -c "$cookiejar" -o /dev/null \
+        "$acropsh_url" 2>/dev/null
+  # step 2: actual download, reusing the cookie
   local code
-  code=$(curl -sL --max-time 180 -o "$zip_file" -w '%{http_code}' "$acropsh_url" 2>/dev/null || echo 000)
+  code=$(curl -sL --max-time 180 -A "$share_ua" -b "$cookiejar" \
+        -o "$zip_file" -w '%{http_code}' "$acropsh_url&download=1" 2>/dev/null || echo 000)
+  rm -f "$cookiejar"
 
   if [[ $code != 200 ]]; then
     rm -f "$zip_file"
