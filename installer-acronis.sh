@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.4"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.5"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.5 — all user-facing output English; menu items aligned with short
+#   one-line descriptions (dim); Indonesian contact block translated
 # 2.9.4 — menu polish: header last-updated month/year + live WIB clock
 #   (1s redraw loop, keypress stops), Help/Exit separated into own misc
 #   column, Help page gets contact emails
@@ -86,7 +88,7 @@ set -uo pipefail
 # treat already-real ESC chars identically, so this is safe everywhere.
 RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
 BLUE=$'\033[34m'; MAGENTA=$'\033[35m'; CYAN=$'\033[36m'
-BOLD=$'\033[1m'; WHITE=$'\033[37m'; RESET=$'\033[0m'
+BOLD=$'\033[1m'; WHITE=$'\033[37m'; RESET=$'\033[0m'; DIM=$'\033[2m'
 
 # 2.8.0: multi-portal registry — "name|download_base|rain_url"
 # rain_url empty = trust the .bin's injected registration server
@@ -243,7 +245,7 @@ agent_status_line() {
 
 ##############  MAIN MENU  ####################
 show_main_menu() {
-  local UPDATED="Sep 2026"   # 2.9.4: bulan/tahun tool terakhir diupdate
+  local UPDATED="Sep 2026"   # 2.9.4: month/year of the last tool update
   local key
   while :; do
   clear
@@ -254,18 +256,19 @@ show_main_menu() {
   echo
   log "Choose action:" "$BOLD"
 
-  printf " $GREEN[1] Install Agent      $YELLOW(i)$RESET\n"
-  printf " $RED[2] Uninstall Agent    $YELLOW(u)$RESET\n"
-  printf " $BLUE[3] Check Services     $YELLOW(s)$RESET\n"
-  printf " $MAGENTA[4] acropsh Tool       $YELLOW(a)$RESET\n"
-  printf " $CYAN[5] CVT Tool           $YELLOW(c)$RESET\n"
-  printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET\n"
-  printf " $CYAN[8] Check Components    $YELLOW(v)$RESET\n"
+  # 2.9.5: aligned menu + one-line English descriptions per item
+  printf " $GREEN[1] Install Agent       $YELLOW(i)$RESET ${DIM}guided multi-portal agent install$RESET\n"
+  printf " $RED[2] Uninstall Agent     $YELLOW(u)$RESET ${DIM}remove agent (two-step confirm)$RESET\n"
+  printf " $BLUE[3] Check Services      $YELLOW(s)$RESET ${DIM}service status + health verdict$RESET\n"
+  printf " $MAGENTA[4] acropsh Tool        $YELLOW(a)$RESET ${DIM}official Acronis health check$RESET\n"
+  printf " $CYAN[5] CVT Tool            $YELLOW(c)$RESET ${DIM}MSP port checker to portal$RESET\n"
+  printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET ${DIM}remove leftover tool files$RESET\n"
+  printf " $CYAN[8] Check Components    $YELLOW(v)$RESET ${DIM}inventory installed components$RESET\n"
 
-  # 2.9.4: Help & Exit dipisah kolom sendiri (bukan bagian operasional)
+  # 2.9.4: Help & Exit in their own misc column (not operational items)
   printf "%b ╾───────┤ misc ├───────╼%b\n" "$CYAN" "$RESET"
-  printf " $WHITE[7] Help                $YELLOW(h)$RESET\n"
-  printf " $RED[0] Exit               $YELLOW(q)$RESET"
+  printf " $WHITE[7] Help                $YELLOW(h)$RESET ${DIM}usage guide + contacts$RESET\n"
+  printf " $RED[0] Exit               $YELLOW(q)$RESET ${DIM}quit to the shell$RESET"
 
   echo
   agent_status_line
@@ -1047,7 +1050,7 @@ ${BOLD}Audit trail:${RESET} every action is logged to
    ~/acronis-installer/audit.log (+ /var/log copy for root)
 
 ${BOLD}Need help?${RESET}
-   Kendala dalam penggunaan tool ini? Hubungi:
+   Having trouble using this tool? Contact:
    ${CYAN}ipunk.prasetyo@datacomm.co.id${RESET}
    ${CYAN}cloudoperation.engineer@datacomm.co.id${RESET}
 HELP

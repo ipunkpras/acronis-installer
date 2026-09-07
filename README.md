@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.4-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.5-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.4/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.5/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,28 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.5</b> — English-only output + aligned menu with descriptions</summary>
+
+- **All user-facing output is now English** (contact-support block translated)
+- Menu items **aligned** — every shortcut letter now starts at the same column
+- Each menu item gets a **short one-line description** (dim gray, out of the way):
+
+```
+[1] Install Agent       (i)  guided multi-portal agent install
+[2] Uninstall Agent     (u)  remove agent (two-step confirm)
+[3] Check Services      (s)  service status + health verdict
+[4] acropsh Tool        (a)  official Acronis health check
+[5] CVT Tool            (c)  MSP port checker to portal
+[6] Clean Artifacts     (k)  remove leftover tool files
+[8] Check Components    (v)  inventory installed components
+ ╾───────┤ misc ├───────╼
+[7] Help                (h)  usage guide + contacts
+[0] Exit               (q)  quit to the shell
+```
+
+</details>
 
 <details>
 <summary><b>2.9.4</b> — menu polish: updated-date header, live clock, contact info</summary>
