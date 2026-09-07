@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.8.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.0 — dual mode: gui (interactive menu, default) + cli (automation:
+#   ACRONIS_MODE=cli + ACRONIS_TOKEN/PORTAL/VERSION/COMPONENT/DEBUG/KEEP_BIN
+#   env vars, zero prompts, proper exit codes, pause suppressed)
 # 2.8.0 — multi-portal: portal picker (preset Datacomm + custom URL),
 #   optional -C/--rain registration-server override (in options-file,
 #   hidden from ps), version scan + installer download from chosen portal
@@ -79,6 +82,11 @@ PORTALS=(
 )
 DL_BASE="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
 
+# 2.9.0: MODE — "gui" (default interactive menu) or "cli" (automation).
+# CLI mode = no prompts: all install inputs come from ACRONIS_* env vars.
+MODE=${ACRONIS_MODE:-gui}
+[[ $MODE != cli && $MODE != gui ]] && MODE=gui
+
 ##############  UTILS  ########################
 log() { echo -e "${2:-}${BOLD}${1}${RESET}"; }
 success() { log "✅ ${1}" "$GREEN"; }
@@ -106,6 +114,7 @@ run_bg() {
 }
 
 pause() {
+  [[ $MODE == cli ]] && return 0
   echo
   read -n1 -rp "$(echo -e "${YELLOW}Press any key to return to menu...${RESET}")"
   echo
@@ -316,9 +325,23 @@ install_agent() {
 
   log_msg "=== Acronis Agent Installation Started ==="
 
-  # 0. portal selection (2.8.0)
-  step 0 "Select portal"
+  # 0. portal selection (2.8.0; 2.9.0 cli mode: ACRONIS_PORTAL / ACRONIS_RAIN)
   local DL RAIN=""
+  if [[ $MODE == cli ]]; then
+    # ACRONIS_PORTAL: preset name index ("1" = Datacomm) or full download-base URL
+    local p_in=${ACRONIS_PORTAL:-1}
+    if [[ $p_in =~ ^[0-9]+$ ]] && (( p_in >= 1 && p_in <= ${#PORTALS[@]} )); then
+      IFS='|' read -r _ DL RAIN <<< "${PORTALS[$((p_in-1))]}"
+    elif [[ $p_in == *"://"* ]]; then
+      DL=${p_in%/}
+      RAIN=${ACRONIS_RAIN%/}
+    else
+      error "ACRONIS_PORTAL must be a preset number (1) or a full URL"; log_msg "ERROR: bad ACRONIS_PORTAL"; return 1
+    fi
+    log_msg "Portal [cli]: $DL${RAIN:+ (reg: $RAIN)}"
+    audit "portal[cli]: $DL reg=${RAIN:-bin-default}"
+  else
+  step 0 "Select portal"
   echo "  Available portals:"
   local p_i p_name
   for p_i in "${!PORTALS[@]}"; do
@@ -344,6 +367,7 @@ install_agent() {
   else
     error "Invalid selection"; pause; return 1
   fi
+  fi
   # strip trailing slash for consistent URL building
   DL=${DL%/}
 
@@ -355,17 +379,31 @@ install_agent() {
   mapfile -t vers < <(grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' <<<"$page" | sort -uV)
   [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; pause; return 1; }
 
+  local DL_VERSION
+  if [[ $MODE == cli ]]; then
+    # cli: ACRONIS_VERSION = exact version, or "latest" (default = highest)
+    local want=${ACRONIS_VERSION:-latest}
+    if [[ $want == latest ]]; then
+      DL_VERSION=${vers[-1]}
+    else
+      DL_VERSION=""
+      local v
+      for v in "${vers[@]}"; do [[ $v == "$want" ]] && DL_VERSION=$v; done
+      [[ -z $DL_VERSION ]] && { error "Version $want not found on portal (available: ${vers[*]})"; log_msg "ERROR: version not found"; return 1; }
+    fi
+    log_msg "Version [cli]: $DL_VERSION"
+  else
   echo "Available versions:"
   local i num
   for i in "${!vers[@]}"; do echo "  $((i+1)). ${vers[$i]}"; done
-
   while true; do
     read -rp "Select version number: " num
     [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
     warn "Enter number between 1 and ${#vers[@]}"
   done
-  local DL_VERSION=${vers[$((num-1))]}
+  DL_VERSION=${vers[$((num-1))]}
   log_msg "User selected version: $DL_VERSION"
+  fi
 
   # 2. scan installer list
   step 2 "Scan installer files"
@@ -390,6 +428,11 @@ install_agent() {
     success "Auto-selected for $(uname -s) $arch: $match"
     log_msg "Auto-selected installer for arch $arch: $match"
   elif [[ ${#matches[@]} -gt 1 ]]; then
+    if [[ $MODE == cli ]]; then
+      match=${matches[0]}
+      warn "Multiple installers for $arch — cli mode takes first: $match"
+      log_msg "Auto (cli, multiple): $match"
+    else
     warn "Multiple Linux installers for $arch — pick one:"
     local i
     for i in "${!matches[@]}"; do echo "  $((i+1)). ${matches[$i]}"; done
@@ -401,7 +444,13 @@ install_agent() {
     done
     match=${matches[$((num-1))]}
     log_msg "User selected installer: $match"
+    fi
   else
+    if [[ $MODE == cli ]]; then
+      error "No installer for arch '$arch' on this portal — cannot continue headless"
+      log_msg "ERROR: no installer for arch $arch (cli)"
+      return 1
+    fi
     # no arch match (unsupported arch / no Linux build) — manual fallback
     warn "No automatic match for arch '$arch' — manual selection:"
     echo ""
@@ -429,13 +478,18 @@ install_agent() {
   fi
   local INSTALLER=$match
 
-  # 5. token
+  # 5. token (2.9.0 cli: ACRONIS_TOKEN)
   step 4 "Registration token"
   local TOKEN
   [[ -n $DL && $DL != https://cloudbackup.datacomm.co.id* ]] && \
     info "Make sure the token was issued by THIS portal's console — tokens do not transfer between portals."
-  read -rp "Registration Token: " TOKEN
-  [[ -z $TOKEN ]] && { error "Token required"; pause; return 1; }
+  if [[ $MODE == cli ]]; then
+    TOKEN=$ACRONIS_TOKEN
+    [[ -z $TOKEN ]] && { error "ACRONIS_TOKEN required in cli mode"; log_msg "ERROR: no token"; return 1; }
+  else
+    read -rp "Registration Token: " TOKEN
+    [[ -z $TOKEN ]] && { error "Token required"; pause; return 1; }
+  fi
   log_msg "Token accepted (hidden)"
 
   # 6. path
@@ -463,6 +517,19 @@ install_agent() {
   mapfile -t comps < <("$BIN" --components-list 2>/dev/null | grep -viE 'trueimage|permission denied' || true)
   local comp_arg=""
   if [[ ${#comps[@]} -gt 0 ]]; then
+    if [[ $MODE == cli ]]; then
+      # 2.9.0: ACRONIS_COMPONENT = exact component id (e.g. AgentForProxmox), empty = standard
+      if [[ -n ${ACRONIS_COMPONENT:-} ]]; then
+        local cfound=""
+        local c
+        for c in "${comps[@]}"; do [[ $c == "$ACRONIS_COMPONENT" ]] && cfound=$c; done
+        [[ -z $cfound ]] && { error "ACRONIS_COMPONENT '$ACRONIS_COMPONENT' not in installer (available: ${comps[*]})"; log_msg "ERROR: bad component"; return 1; }
+        comp_arg="--id=$cfound"
+        log_msg "Component [cli]: $cfound"
+      else
+        log_msg "Component [cli]: standard (no --id)"
+      fi
+    else
     echo "  Available components in this installer:"
     for i in "${!comps[@]}"; do printf "   %d) %s\n" "$((i+1))" "${comps[$i]}"; done
     echo "  Enter = standard agent (BackupAndRecovery) — recommended for most hosts"
@@ -473,6 +540,7 @@ install_agent() {
       log_msg "Selected component: ${comps[$((cn-1))]}"
     else
       log_msg "Standard agent install (no --id)"
+    fi
     fi
   else
     log_msg "components-list unavailable — standard agent install"
@@ -496,10 +564,14 @@ install_agent() {
   local BIN_TMP="$TMP/installer-tmp"
   mkdir -p "$BIN_TMP"
 
-  # P3: optional verbose debug log
+  # P3: optional verbose debug log (cli: ACRONIS_DEBUG=1)
   local dbg; local dbg_arg=""
-  read -rp "Enable installer verbose debug log? [y/N] " dbg
-  [[ $dbg =~ ^[Yy]$ ]] && { dbg_arg="-d"; log_msg "Debug mode: on"; }
+  if [[ $MODE == cli ]]; then
+    [[ ${ACRONIS_DEBUG:-0} == 1 ]] && { dbg_arg="-d"; log_msg "Debug mode [cli]: on"; }
+  else
+    read -rp "Enable installer verbose debug log? [y/N] " dbg
+    [[ $dbg =~ ^[Yy]$ ]] && { dbg_arg="-d"; log_msg "Debug mode: on"; }
+  fi
 
   info "Installer output shown live. APT prereq phase may take 10-30 min — do not Ctrl-C."
   "$BIN" -a --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg > >(tee -a "$LOG") 2>&1 &
@@ -535,15 +607,24 @@ install_agent() {
     return "$rc"
   fi
 
-  # 9. optional delete
+  # 9. optional delete (cli: ACRONIS_KEEP_BIN=1 keeps, default deletes)
   step 7 "Cleanup installer file"
   local del
-  read -rp "Delete installer? [y/N] " del
-  if [[ $del =~ ^[Yy]$ ]]; then
-    rm -rf "$TMP"
-    log_msg "Installer deleted"
+  if [[ $MODE == cli ]]; then
+    if [[ ${ACRONIS_KEEP_BIN:-0} == 1 ]]; then
+      log_msg "Installer kept at $TMP"
+    else
+      rm -rf "$TMP"
+      log_msg "Installer deleted [cli default]"
+    fi
   else
-    log_msg "Installer kept at $TMP"
+    read -rp "Delete installer? [y/N] " del
+    if [[ $del =~ ^[Yy]$ ]]; then
+      rm -rf "$TMP"
+      log_msg "Installer deleted"
+    else
+      log_msg "Installer kept at $TMP"
+    fi
   fi
 
   log_msg "=== Installation Finished ==="
@@ -866,7 +947,9 @@ show_help() {
   echo
   cat <<HELP
 ${BOLD}[1] Install Agent${RESET} (i)
-   Guided install, multi-portal. Pick the portal first (Datacomm
+   Guided install, multi-portal. Set ACRONIS_MODE=cli for headless
+   automation (see README — all inputs via ACRONIS_* env vars, no
+   prompts, exit code usable in CI/Ansible). Pick the portal first (Datacomm
    preset, or a custom one with your own download base URL and optional
    registration-server override -C). The tool then fetches the version
    list from that portal, auto-selects the installer for your OS
@@ -943,6 +1026,28 @@ check_and_install_unzip() {
   else error "No supported package manager"; return 1
   fi
 }
+
+##############  MAIN  #######################
+# 2.9.0: cli mode — run install headless then exit (for automation).
+# usage:
+#   ACRONIS_MODE=cli ACRONIS_TOKEN=xxx [options] sudo -E ./installer-acronis.sh
+# options:
+#   ACRONIS_PORTAL    1 = Datacomm preset | full download-base URL (default 1)
+#   ACRONIS_RAIN      reg-server override -C (only with URL portal)
+#   ACRONIS_VERSION   exact version | latest (default latest)
+#   ACRONIS_COMPONENT component id e.g. AgentForProxmox (default standard)
+#   ACRONIS_DEBUG     1 = installer -d verbose
+#   ACRONIS_KEEP_BIN 1 = keep downloaded .bin (default delete)
+if [[ $MODE == cli ]]; then
+  [[ $EUID -ne 0 ]] && { error "cli mode must run as root (sudo -E)"; exit 1; }
+  if install_agent; then
+    audit "cli install: OK"
+    exit 0
+  else
+    audit "cli install: FAILED"
+    exit 1
+  fi
+fi
 
 ##############  MAIN LOOP  ####################
 while true; do

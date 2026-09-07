@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.8.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,33 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.0</b> — dual mode: interactive GUI + headless CLI automation</summary>
+
+**CLI mode** — zero prompts, exit codes usable in CI/Ansible/JumpServer automation:
+
+```bash
+ACRONIS_MODE=cli ACRONIS_TOKEN=xxx \
+  [ACRONIS_PORTAL=1] [ACRONIS_VERSION=latest] [ACRONIS_COMPONENT=] \
+  [ACRONIS_DEBUG=1] [ACRONIS_KEEP_BIN=1] \
+  sudo -E ./installer-acronis.sh
+```
+
+| Env var | Meaning | Default |
+|---|---|---|
+| `ACRONIS_PORTAL` | `1` = Datacomm preset, or full download-base URL | `1` |
+| `ACRONIS_RAIN` | `-C` reg-server override (custom portal only) | .bin built-in |
+| `ACRONIS_VERSION` | exact version or `latest` | `latest` |
+| `ACRONIS_COMPONENT` | e.g. `AgentForProxmox` | standard agent |
+| `ACRONIS_DEBUG` | `1` = installer `-d` verbose | off |
+| `ACRONIS_KEEP_BIN` | `1` = keep downloaded .bin | delete |
+
+- Missing token / bad version / bad component / unsupported arch → clean error + `exit 1` (never blocks on a prompt)
+- Everything the interactive flow does (multi-portal, arch auto-select, token-in-options-file hidden from `ps`, progress bar) works identically in CLI mode
+- GUI menu unchanged — it remains the default when `ACRONIS_MODE` is not set
+
+</details>
 
 <details>
 <summary><b>2.8.0</b> — multi-portal install</summary>
