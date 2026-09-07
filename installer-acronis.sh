@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.4.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.5.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.5.0 — menu: "Cleanup Tmp" renamed "Clean Artifacts" (k), added Help (h)
+#   page explaining every menu function; cleanup also removes kept .bin installers
 # 2.4.3 — install: auto-select installer matching OS architecture
 #   (x86_64/x86/arm64 via uname -m); manual keyword fallback kept
 # 2.4.2 — menu footer shows the RUNNING Acronis agent version
@@ -48,7 +50,7 @@ set -uo pipefail
 ##############  COLOUR & THEME  ################
 RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'
 BLUE='\033[34m'; MAGENTA='\033[35m'; CYAN='\033[36m'
-BOLD='\033[1m'; RESET='\033[0m'
+BOLD='\033[1m'; WHITE='\033[37m'; RESET='\033[0m'
 
 DL_BASE="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
 
@@ -187,7 +189,8 @@ show_main_menu() {
   printf " $BLUE[3] Check Services     $YELLOW(s)$RESET\n"
   printf " $MAGENTA[4] acropsh Tool       $YELLOW(a)$RESET\n"
   printf " $CYAN[5] CVT Tool           $YELLOW(c)$RESET\n"
-  printf " $YELLOW[6] Cleanup Tmp        $YELLOW(l)$RESET\n"
+  printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET\n"
+  printf " $WHITE[7] Help                $YELLOW(h)$RESET\n"
   printf " $RED[0] Exit               $YELLOW(q)$RESET\n"
 
   echo
@@ -201,7 +204,8 @@ show_main_menu() {
     s|3) audit "MENU: check_services"; check_services;;
     a|4) audit "MENU: acropsh start"; run_acropsh && audit "ACTION acropsh: OK" || { audit "ACTION acropsh: FAILED"; warn "acropsh finished with error"; };;
     c|5) audit "MENU: cvt start"; run_cvt_tool && audit "ACTION cvt: OK" || { audit "ACTION cvt: FAILED"; warn "CVT finished with error"; };;
-    l|6) audit "MENU: cleanup"; cleanup;;
+    k|6) audit "MENU: cleanup artifacts"; cleanup;;
+    h|7) audit "MENU: help"; show_help;;
     q|0) audit "MENU: exit"; log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
   esac
@@ -623,14 +627,63 @@ run_acropsh() {
   return "$rc"
 }
 
+##############  HELP  #######################
+show_help() {
+  clear
+  draw_box \
+    '📖   Acronis AIO Tools — Help' \
+    "$VERSION • press any key in menu to return"
+  echo
+  cat <<HELP
+${BOLD}[1] Install Agent${RESET} (i)
+   Guided install. Fetches version list from the Datacomm portal,
+   auto-selects the installer for your OS architecture, asks for the
+   registration token, then installs with live output + 30s heartbeat.
+   Log: /var/log/acronis-install-<hostname>-<date>.log
+
+${BOLD}[2] Uninstall Agent${RESET} (u)
+   Two-step confirmation (y/N, then type UNINSTALL) after showing a
+   service summary table. Uses Acronis' own uninstaller.
+
+${BOLD}[3] Check Services${RESET} (s)
+   Colored status table for aakore / acronis_mms / acronis_schedule /
+   acronis_kmod_service + overall health verdict.
+
+${BOLD}[4] acropsh Tool${RESET} (a)
+   Downloads and runs the official Acronis Linux health-check
+   (linux_installation_healthcheck). Report (chmod 644):
+   /tmp/*-service_summary.html
+
+${BOLD}[5] CVT Tool${RESET} (c)
+   MSP Port Checker — verifies required ports to
+   cloudbackup.datacomm.co.id. Password input is hidden (never echoed).
+   Log: /tmp/cvt_<hostname>_<date>.log
+
+${BOLD}[6] Clean Artifacts${RESET} (k)
+   Removes leftover files this tool created in /tmp: CVT logs/zips,
+   acropsh archives, and the port-checker download. Nothing else is
+   touched. Also removes the downloaded .bin installer if you kept it.
+
+${BOLD}[7] Help${RESET} (h)
+   This page.
+
+${BOLD}[0] Exit${RESET} (q)
+   Quit to the shell.
+
+${BOLD}Audit trail:${RESET} every action is logged to
+   /var/log/acronis-tools-<hostname>.log
+HELP
+  pause
+}
 ##############  CLEANUP  ######################
 cleanup() {
-  info "Cleaning temporary files..."
-  # ponytail: pattern sempit + kurung (precedence find) — jangan sentuh zip lain
+  info "Cleaning tool artifacts in /tmp (CVT / acropsh / port-checker)..."
+  # ponytail: narrow patterns + parens (find precedence) — never touch other zips
   find /tmp -maxdepth 1 -type f \
        \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
-          -o -name 'Linux64.zip' \) -print -delete
-  success "Cleanup done"
+          -o -name 'acropsh_*.bin' -o -name 'Linux64.zip' \
+          -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete
+  success "Artifacts cleaned"
   pause
 }
 

@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.4.3-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -45,7 +45,8 @@ built for the Datacomm Cloud Business backup portal
  [3] Check Services     (s)   → colored status table + health verdict
  [4] acropsh Tool       (a)   → agent health-check scripts
  [5] CVT Tool           (c)   → port connectivity checker (hidden password)
- [6] Cleanup Tmp        (l)   → remove tool leftovers in /tmp
+ [6] Clean Artifacts     (k)   → remove tool leftovers in /tmp
+ [7] Help                (h)   → usage guide for every function
  [0] Exit               (q)
  ────────────────────────────
  ● Agent footer: live acronis_mms state + INSTALLED AGENT VERSION (e.g. `v26.7.1 build 42848`) shown under the menu
@@ -87,9 +88,14 @@ password prompt is **hidden** (no echo — safe for screen-shares and history).
 
 > 📄 Result log: `/tmp/cvt_<HOSTNAME>_<DATE>.log`
 
-### [6] Cleanup Tmp `(l)`
+### [6] Clean Artifacts `(k)`
 Deletes only files this tool created: `cvt_*.log`, `acropsh_*.log`,
-`acropsh_*.zip`, `Linux64.zip` in `/tmp`.
+`acropsh_*.zip`, `acropsh_*.bin`, `Linux64.zip`, and kept
+`CyberProtect_AgentFor*.bin` installers — nothing else in `/tmp` is touched.
+
+### [7] Help `(h)`
+Built-in usage guide — explains what every menu function does, where logs
+and reports are written, and the audit trail location.
 
 </details>
 
@@ -115,7 +121,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.4.3/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.5.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -138,6 +144,15 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.5.0</b> — Clean Artifacts rename + built-in Help</summary>
+
+- Menu item `Cleanup Tmp` renamed to **Clean Artifacts** (shortcut `k`) — describes the real job: removing leftover artifacts of this tool
+- Cleanup now also removes kept `CyberProtect_AgentFor*.bin` installers
+- New **Help** menu item (`h`) — in-tool usage guide for every function, log/report locations, and the audit trail
+
+</details>
 
 <details>
 <summary><b>2.4.3</b> — installer auto-selected by OS architecture</summary>
