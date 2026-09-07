@@ -129,6 +129,66 @@ sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-
 See [Releases](../../tags) for all tags.
 </details>
 
+### Install modes
+
+The Install Agent action has three modes, selected with `ACRONIS_MODE`:
+
+| Mode | What it does | When to use |
+|---|---|---|
+| `gui` (default) | Guided prompts (portal, version, token), then unattended install (`-a`) | Normal interactive use |
+| `manual` | Same guided prompts, then runs the installer's **own interactive setup wizard** (component checklist, F12 descriptions, Tab/Space) | When you want to pick components yourself in Acronis' native TUI |
+| `cli` | **Zero prompts** — all input via env vars, machine-readable exit codes | Ansible / CI / JumpServer automation |
+
+#### Manual mode — Acronis' own setup wizard
+
+```bash
+ACRONIS_MODE=manual sudo -E ./installer-acronis.sh
+```
+
+- Guided flow stays interactive (portal → version → architecture auto-select → download with progress bar → token)
+- Token still goes into a mode-600 options-file (never visible in `ps`)
+- The installer then runs **without `-a`**, so Acronis' wizard appears: tick components with `Space`, descriptions with `F12`, navigate with `Tab`
+
+Already have the `.bin` downloaded? Run its wizard directly, skipping the guided flow:
+
+```bash
+ACRONIS_MODE=manual ACRONIS_BIN=~/acronis-installer/CyberProtect_AgentForLinux_x86_64.bin sudo -E ./installer-acronis.sh
+```
+
+#### CLI mode — headless automation
+
+```bash
+ACRONIS_MODE=cli ACRONIS_TOKEN=0C14-XXXX-XXXX \
+  [ACRONIS_PORTAL=1] [ACRONIS_VERSION=latest] [ACRONIS_COMPONENT=] \
+  [ACRONIS_DEBUG=1] [ACRONIS_KEEP_BIN=1] \
+  sudo -E ./installer-acronis.sh
+```
+
+| Env var | Meaning | Default |
+|---|---|---|
+| `ACRONIS_TOKEN` | Registration token (**required in cli mode**) | — |
+| `ACRONIS_PORTAL` | `1` = Datacomm preset, or a full download-base URL | `1` |
+| `ACRONIS_RAIN` | `-C` registration-server override (custom portals) | .bin built-in |
+| `ACRONIS_VERSION` | Exact version, or `latest` | `latest` |
+| `ACRONIS_COMPONENT` | e.g. `AgentForProxmox` | standard agent |
+| `ACRONIS_DEBUG` | `1` = installer `-d` verbose log | off |
+| `ACRONIS_KEEP_BIN` | `1` = keep the downloaded `.bin` | delete |
+
+Behavior: missing token / unknown version / bad component → clean error message and `exit 1` — it never blocks waiting for a prompt. Success ends `exit 0`. Ansible example:
+
+```yaml
+- name: Install Acronis agent (unattended)
+  ansible.builtin.shell: |
+    ACRONIS_MODE=cli ACRONIS_TOKEN={{ token }} ACRONIS_VERSION=latest \
+      ./installer-acronis.sh
+  args:
+    chdir: /root/acronis-installer
+  register: acronis
+  failed_when: acronis.rc != 0
+```
+
+> `sudo -E` (or `sudo -E env ACRONIS_...=...`) is required: plain `sudo` strips env vars, so the script would fall back to GUI mode.
+
 ---
 
 ## 📋 Requirements
