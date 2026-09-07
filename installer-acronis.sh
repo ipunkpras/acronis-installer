@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.9"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.10"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.10 — Check Components output compacted to fit one screen on short
+#   terminals: feature dirs now ONE line (was 7), section separator dropped.
+#   Symptom fixed: snapapi status + "Press any key" prompt scrolled off-screen.
 # 2.9.9 — header polish + host info: updated-date/clock moved INSIDE the box
 #   as a third centered line, pure ASCII (the old line below the box was
 #   left-anchored and ran past the box edge); box width shrink-wraps to the
@@ -834,7 +837,7 @@ uninstall_agent() {
 check_components() {
   echo
   log "Installed Acronis Components" "$BOLD"
-  echo -e "  ${CYAN}────────────────────────────────────────────${RESET}"
+  # 2.9.10: separator dropped — every saved line keeps snapapi + prompt on-screen
 
   # agent version
   local vf=/opt/acronis/var/aakore/installer.version av="(not installed)"
@@ -868,16 +871,18 @@ check_components() {
   fi
 
   # feature directories (optional components present on disk)
-  echo
-  echo -e "  ${BOLD}Feature directories (/usr/lib/Acronis):${RESET}"
-  local f
+  # 2.9.10: one-line listing (was 7 lines + separators — pushed snapapi
+  # status and the pause prompt off-screen on short terminals)
+  echo -e "  ${BOLD}Feature dirs (/usr/lib/Acronis):${RESET}"
+  local f flist=""
   for f in BackupAndRecoveryAgent BackupAndRecovery CPS Schedule CommandLineTool VirtualWare PyTools; do
     if [[ -d /usr/lib/Acronis/$f ]]; then
-      echo -e "   ${GREEN}✓${RESET} $f"
+      flist+="${GREEN}✓${RESET}$f "
     else
-      echo -e "   ${RED}✗${RESET} $f"
+      flist+="${RED}✗${RESET}$f "
     fi
   done
+  echo -e "  $flist"
 
   # snapapi kernel module
   echo

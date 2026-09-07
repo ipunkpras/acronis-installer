@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.9-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.10-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.9/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.10/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -207,6 +207,15 @@ Behavior: missing token / unknown version / bad component → clean error messag
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
 
+<details>
+<summary><b>2.9.10</b> — Check Components fits one screen</summary>
+
+- **Bug:** on short terminals (~26 rows) the Check Components output was taller than the screen — the snapapi kernel-module status and the "Press any key" prompt scrolled out of view, looking like the script died after the section header.
+- Feature directories now print as **one line** (`✓Name ✗Name …`), was one line per directory.
+- Section separator line dropped.
+- Net: ~10 saved rows; full output + prompt fits comfortably on a 26-row terminal.
+
+</details>
 <details>
 <summary><b>2.9.9</b> — header finished + host info in status block</summary>
 
