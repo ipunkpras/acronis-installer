@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.4.2-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.4.3-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -40,7 +40,7 @@ built for the Datacomm Cloud Business backup portal
 ```
 🛡️   Acronis Cyber Protect Agent Tools
 ─────────────────────────────────────────
- [1] Install Agent      (i)   → guided install: numbered steps 1-6
+ [1] Install Agent      (i)   → guided install: auto OS/arch installer pick
  [2] Uninstall Agent    (u)   → TWO-STEP confirm + service summary first
  [3] Check Services     (s)   → colored status table + health verdict
  [4] acropsh Tool       (a)   → agent health-check scripts
@@ -57,9 +57,8 @@ built for the Datacomm Cloud Business backup portal
 ### [1] Install Agent `(i)`
 1. Fetches the available version list from the portal (live).
 2. You pick a version number.
-3. *(Optional)* filter the installer list by keyword (`cyber`, `linux`, …).
-4. You pick the matching `.bin` installer.
-5. Enter your **Registration Token**.
+3. Installer file is **auto-selected by OS architecture** (`uname -m`) — falls back to manual keyword filter on unsupported arch.
+4. Enter your **Registration Token**.
 6. Script downloads (validated), then installs with live output + heartbeat.
 7. After install it verifies `acronis_mms` is active, then offers to delete the downloaded installer.
 
@@ -116,7 +115,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.4.2/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.4.3/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -139,6 +138,14 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.4.3</b> — installer auto-selected by OS architecture</summary>
+
+- Install flow now **auto-selects the installer** matching the machine's OS and CPU architecture (`uname -m`: x86_64 / x86 / arm64) — no more typing or browsing the 38-file list
+- If multiple matches: short numbered pick; if no match (unsupported arch): manual keyword filter fallback (previous behavior)
+
+</details>
 
 <details>
 <summary><b>2.4.2</b> — menu footer shows installed agent version</summary>

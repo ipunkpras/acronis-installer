@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.4.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.4.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.4.3 — install: auto-select installer matching OS architecture
+#   (x86_64/x86/arm64 via uname -m); manual keyword fallback kept
 # 2.4.2 — menu footer shows the RUNNING Acronis agent version
 #   (installer.version / package / aakore CLI fallbacks) instead of tool info only
 # 2.4.1 — kmod note: informational message when acronis_kmod_service is
@@ -272,39 +274,59 @@ install_agent() {
   mapfile -t installers < <(grep -oP 'href="\K[^\"]+\.(bin|exe|dmg|spk)(?=\")' <<<"$page" | sort -uV)
   [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; pause; return 1; }
 
-  # 3. filter
-  echo ""
-  echo "Available installers (${#installers[@]} total):"
-  for i in "${!installers[@]}"; do echo "  $((i+1)). ${installers[$i]}"; done
+  # 3. auto-select installer by OS architecture (2.4.3)
+  step 3 "Select installer file (auto-detected)"
+  local arch; arch=$(uname -m)
+  local match="" matches=()
+  case "$arch" in
+    x86_64|amd64) mapfile -t matches < <(printf '%s\n' "${installers[@]}" | grep -iE 'ForLinux_x86_64\.bin$' || true) ;;
+    i[3-6]86|x86) mapfile -t matches < <(printf '%s\n' "${installers[@]}" | grep -iE 'ForLinux_x86\.bin$'   || true) ;;
+    aarch64|arm64) mapfile -t matches < <(printf '%s\n' "${installers[@]}" | grep -iE 'ForLinux_arm64?\.bin$' || true) ;;
+  esac
 
-  echo ""
-  local keyword
-  read -rp "Enter filter keyword (or press Enter to show all): " keyword
-  local filtered=("${installers[@]}")
-  if [[ -n "${keyword:-}" ]]; then
-    mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword" || true)
-    if [[ ${#filtered[@]} -eq 0 ]]; then
-      warn "No installer matches keyword '$keyword', showing all installers"
-      filtered=("${installers[@]}")
-    else
-      log_msg "Filtered by keyword '$keyword': ${#filtered[@]} result(s)"
+  if [[ ${#matches[@]} -eq 1 ]]; then
+    match=${matches[0]}
+    success "Auto-selected for $(uname -s) $arch: $match"
+    log_msg "Auto-selected installer for arch $arch: $match"
+  elif [[ ${#matches[@]} -gt 1 ]]; then
+    warn "Multiple Linux installers for $arch — pick one:"
+    local i
+    for i in "${!matches[@]}"; do echo "  $((i+1)). ${matches[$i]}"; done
+    local num
+    while true; do
+      read -rp "Select installer number: " num
+      [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#matches[@]} )) && break
+      warn "Enter number between 1 and ${#matches[@]}"
+    done
+    match=${matches[$((num-1))]}
+    log_msg "User selected installer: $match"
+  else
+    # no arch match (unsupported arch / no Linux build) — manual fallback
+    warn "No automatic match for arch '$arch' — manual selection:"
+    echo ""
+    echo "Available installers (${#installers[@]} total):"
+    local i
+    for i in "${!installers[@]}"; do echo "  $((i+1)). ${installers[$i]}"; done
+    local keyword num filtered=()
+    read -rp "Enter filter keyword (or press Enter to show all): " keyword
+    filtered=("${installers[@]}")
+    if [[ -n "${keyword:-}" ]]; then
+      mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword" || true)
+      [[ ${#filtered[@]} -eq 0 ]] && { warn "No installer matches keyword '$keyword', showing all installers"; filtered=("${installers[@]}"); }
     fi
+    echo ""
+    echo "Filtered installers (${#filtered[@]} found):"
+    for i in "${!filtered[@]}"; do echo "  $((i+1)). ${filtered[$i]}"; done
+    [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return 1; }
+    while true; do
+      read -rp "Select installer number: " num
+      [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
+      warn "Enter number between 1 and ${#filtered[@]}"
+    done
+    match=${filtered[$((num-1))]}
+    log_msg "User selected installer (manual): $match"
   fi
-
-  echo ""
-  echo "Filtered installers (${#filtered[@]} found):"
-  for i in "${!filtered[@]}"; do echo "  $((i+1)). ${filtered[$i]}"; done
-
-  # 4. choose installer
-  step 3 "Select installer file"
-  [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return 1; }
-  while true; do
-    read -rp "Select installer number: " num
-    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
-    warn "Enter number between 1 and ${#filtered[@]}"
-  done
-  local INSTALLER=${filtered[$((num-1))]}
-  log_msg "User selected installer: $INSTALLER"
+  local INSTALLER=$match
 
   # 5. token
   step 4 "Registration token"
