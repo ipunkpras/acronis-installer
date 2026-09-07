@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.4.1-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.4.2-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -48,7 +48,7 @@ built for the Datacomm Cloud Business backup portal
  [6] Cleanup Tmp        (l)   → remove tool leftovers in /tmp
  [0] Exit               (q)
  ────────────────────────────
- ● Agent status: live acronis_mms state shown under the menu
+ ● Agent footer: live acronis_mms state + INSTALLED AGENT VERSION (e.g. `v26.7.1 build 42848`) shown under the menu
 ```
 
 <details>
@@ -116,7 +116,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.4.1/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.4.2/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -139,6 +139,14 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.4.2</b> — menu footer shows installed agent version</summary>
+
+- Menu footer now displays the **installed Acronis agent version** (e.g. `v26.7.1 build 42848`) alongside the service state — read from `/opt/acronis/var/aakore/installer.version`, with package-manager and `aakore` CLI fallbacks
+- Footer states: `running` / `stopped` / `not installed`
+
+</details>
 
 <details>
 <summary><b>2.4.1</b> — kmod inactive explainer</summary>

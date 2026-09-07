@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.4.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.4.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.4.2 — menu footer shows the RUNNING Acronis agent version
+#   (installer.version / package / aakore CLI fallbacks) instead of tool info only
 # 2.4.1 — kmod note: informational message when acronis_kmod_service is
 #   inactive (oneshot DKMS builder — normal after module is built)
 # 2.4.0 — UX + audit layer:
@@ -133,6 +135,42 @@ draw_box() {
   printf "%b╰─%s─╯%b\n" "$CYAN" "$border" "$RESET"
 }
 
+# 2.4.2: menu footer — installed Acronis agent version + service state
+agent_version() {
+  local v=""
+  # a) official version file (aakore)
+  if [[ -r /opt/acronis/var/aakore/installer.version ]]; then
+    local maj min pat build
+    maj=$(grep -oP 'MAJOR_VERSION=\K[0-9]+' /opt/acronis/var/aakore/installer.version 2>/dev/null)
+    min=$(grep -oP 'MINOR_VERSION=\K[0-9]+' /opt/acronis/var/aakore/installer.version 2>/dev/null)
+    pat=$(grep -oP 'PATCH_VERSION=\K[0-9]+' /opt/acronis/var/aakore/installer.version 2>/dev/null)
+    build=$(grep -oP 'BUILD_NUMBER=\K[0-9]+' /opt/acronis/var/aakore/installer.version 2>/dev/null)
+    [[ -n $maj ]] && v="$maj.$min.$pat${build:+ build $build}"
+  fi
+  # b) fallback: dpkg/rpm package version
+  if [[ -z $v ]]; then
+    v=$(dpkg-query -W -f'${Version}' 'acronis-mms' 2>/dev/null) || true
+    [[ -z $v ]] && v=$(rpm -q --qf '%{VERSION}' acronis-mms 2>/dev/null) || true
+  fi
+  # c) fallback: aakore CLI
+  if [[ -z $v ]]; then
+    v=$(/opt/acronis/aakore version 2>/dev/null | grep -oP 'version \K[0-9.+]+' ) || true
+  fi
+  echo "$v"
+}
+
+agent_status_line() {
+  local ver; ver=$(agent_version)
+  [[ -n $ver ]] && ver=" (v$ver)"
+  if systemctl is-active --quiet acronis_mms 2>/dev/null; then
+    echo -e " ${GREEN}●${RESET} Agent: ${GREEN}running${RESET}   ${BOLD}acronis_mms active${RESET}$ver   ${BOLD}tool v${VERSION}${RESET}"
+  elif [[ -n $ver ]]; then
+    echo -e " ${RED}○${RESET} Agent: ${RED}stopped${RESET}   ${BOLD}acronis_mms inactive${RESET}$ver   ${BOLD}tool v${VERSION}${RESET}"
+  else
+    echo -e " ${RED}○${RESET} Agent: ${RED}not installed${RESET}   ${BOLD}tool v${VERSION}${RESET}"
+  fi
+}
+
 ##############  MAIN MENU  ####################
 show_main_menu() {
   clear
@@ -151,11 +189,7 @@ show_main_menu() {
   printf " $RED[0] Exit               $YELLOW(q)$RESET\n"
 
   echo
-  if systemctl is-active --quiet acronis_mms 2>/dev/null; then
-    echo -e " ${GREEN}●${RESET} Agent status: ${GREEN}acronis_mms active${RESET}   ${BOLD}v${VERSION}${RESET}"
-  else
-    echo -e " ${RED}○${RESET} Agent status: ${RED}acronis_mms not running${RESET}   ${BOLD}v${VERSION}${RESET}"
-  fi
+  agent_status_line
   echo
   read -rp "Press key (shortcut in yellow): " -n1 key
   echo
