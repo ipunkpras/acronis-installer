@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.3.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.3.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.3.1 — changes (on top of 2.0.0 fixes):
+#  - acropsh: HTML report chmod 644 after run (tempfile creates it root:600,
+#    unreadable via SFTP without root) + path printed after run
 # 2.3.0 — changes (on top of 2.0.0 fixes):
 #  - acropsh: fix 401 download — two-step SharePoint fetch (visit page for
 #    session cookie, then download with it). Manual /tmp/acropsh.zip fallback kept.
@@ -458,6 +461,17 @@ run_acropsh() {
     ls -la
   fi
   cd - >/dev/null
+
+  # 2.3.1: acropsh writes its HTML report via tempfile.NamedTemporaryFile
+  # (mkstemp) → mode 600 owned by root, unreadable over SFTP by normal users.
+  # Make the newest service_summary report world-readable so it can be
+  # fetched without root.
+  local report
+  report=$(ls -t /tmp/*-service_summary.html 2>/dev/null | head -n1)
+  if [[ -n $report ]]; then
+    chmod 644 "$report"
+    info "Report (readable via SFTP): $report"
+  fi
 
   if [[ $rc -eq 0 ]]; then
     success "acropsh finished"
