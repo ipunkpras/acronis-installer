@@ -1,6 +1,10 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.6.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.7.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.7.0 — loading UX + components: real progress bar on downloads
+#   (% [####----] got/total), ASCII spinner (braille broke on many fonts)
+#   with elapsed time, mm:ss install heartbeat, [8] Check Components (v):
+#   agent version, registered agents, feature dirs, snapapi module state
 # 2.6.0 — install hardening (P1-P3): token in options-file (600, shredded
 #   after — invisible in ps), component selection via --components-list/-i,
 #   --tmp-dir into ~/acronis-installer, optional -d debug
@@ -74,11 +78,12 @@ error() { log "❌ ${1}" "$RED"; }
 warn()  { log "⚠️  ${1}" "$YELLOW"; }
 info()  { log "ℹ️  ${1}" "$BLUE"; }
 
-# spinner dengan line-clear (\033[K) — v2.0 menimpa baris tanpa clear
+# spinner v3 (2.7.0): ASCII chars only (braille broke on many terminal
+# fonts — PuTTY/Windows show boxes), plus elapsed seconds, line-clear \033[K
 spinner() {
-  local pid=$1 spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+  local pid=$1 spin='-\|/' i=0 label=${2:-working} t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
-    printf "\r\033[K%s %s..." "${spin:i++%${#spin}:1}" "$2"
+    printf "\r\033[K  %s %s ... %ds " "${spin:i++%4:1}" "$label" "$((SECONDS-t0))"
     sleep 0.15
   done
   printf "\r\033[K"
@@ -222,6 +227,7 @@ show_main_menu() {
   printf " $CYAN[5] CVT Tool           $YELLOW(c)$RESET\n"
   printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET\n"
   printf " $WHITE[7] Help                $YELLOW(h)$RESET\n"
+  printf " $CYAN[8] Check Components    $YELLOW(v)$RESET\n"
   printf " $RED[0] Exit               $YELLOW(q)$RESET\n"
 
   echo
@@ -237,6 +243,7 @@ show_main_menu() {
     c|5) audit "MENU: cvt start"; run_cvt_tool && audit "ACTION cvt: OK" || { audit "ACTION cvt: FAILED"; warn "CVT finished with error"; };;
     k|6) audit "MENU: cleanup artifacts"; cleanup;;
     h|7) audit "MENU: help"; show_help;;
+    v|8) audit "MENU: check components"; check_components;;
     q|0) audit "MENU: exit"; log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
   esac
@@ -252,18 +259,36 @@ fetch_page() {
 }
 
 ##############  DOWNLOAD HELPER  ##############
-# validated download: rc + size vs Content-Length, progress nyata, atomic
+# validated download: rc + size vs Content-Length, atomic (.tmp -> move)
+# 2.7.0: real progress bar — background curl/wget + poll size vs expected,
+# renders  % [####----] got/total (elapsed). Works even without numfmt.
 download() {
-  local url=$1 dest=$2 expected got rc
+  local url=$1 dest=$2 expected got rc pid t0 pct filled bar gots tots
   expected=$(curl -sIL --max-time 20 "$url" 2>/dev/null \
-             | awk 'tolower($1) ~ /^content-length:/ {v=$2} END {print int(v)}' | tr -d '\r')
+             | awk 'tolower($1) ~ /^http\// {ok = ($2 == 200)} tolower($1) ~ /^content-length:/ && ok {v=$2} END {print int(v)}' | tr -d '\r')
   if command -v curl >/dev/null 2>&1; then
-    curl -fL --retry 3 --connect-timeout 15 -o "$dest.tmp" "$url"
-    rc=$?
+    curl -fsL --retry 3 --connect-timeout 15 -o "$dest.tmp" "$url" & pid=$!
   else
-    wget -O "$dest.tmp" "$url"
-    rc=$?
+    wget -q -O "$dest.tmp" "$url" & pid=$!
   fi
+  t0=$SECONDS
+  while kill -0 "$pid" 2>/dev/null; do
+    got=$(stat -c%s "$dest.tmp" 2>/dev/null || echo 0)
+    if [[ ${expected:-0} -gt 0 ]]; then
+      pct=$(( got * 100 / expected )); (( pct > 100 )) && pct=100
+      filled=$(( pct / 5 ))
+      bar=$(printf '%*s' "$filled" '' | tr ' ' '#')$(printf '%*s' "$(( 20 - filled ))" '' | tr ' ' '-')
+      gots=$(numfmt --to=iec "$got" 2>/dev/null || echo "${got}B")
+      tots=$(numfmt --to=iec "$expected" 2>/dev/null || echo "${expected}B")
+      printf "\r\033[K  %3d%% [%s] %s / %s (%ds) " "$pct" "$bar" "$gots" "$tots" "$((SECONDS-t0))"
+    else
+      gots=$(numfmt --to=iec "$got" 2>/dev/null || echo "${got}B")
+      printf "\r\033[K  downloading ... %s (%ds) " "$gots" "$((SECONDS-t0))"
+    fi
+    sleep 1
+  done
+  wait "$pid"; rc=$?
+  printf "\r\033[K"
   got=$(stat -c%s "$dest.tmp" 2>/dev/null || echo 0)
   if [[ $rc -ne 0 || ( ${expected:-0} -gt 0 && $got -ne $expected ) ]]; then
     rm -f "$dest.tmp"
@@ -438,7 +463,10 @@ install_agent() {
   local pid=$! t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     sleep 30
-    kill -0 "$pid" 2>/dev/null && info "installer still running ... $((SECONDS-t0))s"
+    if kill -0 "$pid" 2>/dev/null; then
+      local el=$((SECONDS-t0))
+      info "installer running ... $((el/60))m$((el%60))s (APT phase can take 10-30 min)"
+    fi
   done
   wait "$pid"
   local rc=$?
@@ -530,6 +558,75 @@ uninstall_agent() {
     || success "acronis_mms no longer active"
   pause
   return "$rc"
+}
+
+##############  COMPONENT CHECK  #############
+# 2.7.0: inventory of installed Acronis components — agent version from
+# installer.version, registered agents from the aakore registry XML
+# (AgentInfo DisplayName+Version entries), snapapi kernel module state.
+check_components() {
+  echo
+  log "Installed Acronis Components" "$BOLD"
+  echo -e "  ${CYAN}────────────────────────────────────────────${RESET}"
+
+  # agent version
+  local vf=/opt/acronis/var/aakore/installer.version av="(not installed)"
+  if [[ -r $vf ]]; then
+    local maj min pat build
+    maj=$(grep -oP 'MAJOR_VERSION=\K[0-9]+' "$vf" 2>/dev/null)
+    min=$(grep -oP 'MINOR_VERSION=\K[0-9]+' "$vf" 2>/dev/null)
+    pat=$(grep -oP 'PATCH_VERSION=\K[0-9]+' "$vf" 2>/dev/null)
+    build=$(grep -oP 'BUILD_NUMBER=\K[0-9]+' "$vf" 2>/dev/null)
+    [[ -n $maj ]] && av="$maj.$min.$pat (build $build)"
+  fi
+  echo -e "  Agent version: ${BOLD}$av${RESET}"
+
+  # registered agents from aakore registry XML
+  local regf=/usr/lib/Acronis/BackupAndRecoveryAgent.reg
+  if [[ -r $regf ]]; then
+    echo
+    echo -e "  ${BOLD}Registered agents:${RESET}"
+    awk '
+      /MachineManager\\AgentInfo\\/ { ai=1 }
+      ai && /<name>DisplayName<\/name>/ { dn=1 }
+      dn && /<value>/ { gsub(/.*<value>|<\/value>.*/,""); name=$0; dn=0 }
+      ai && /<name>Version<\/name>/ { vn=1 }
+      vn && /<value>/ { gsub(/.*<value>|<\/value>.*/,""); ver=$0; vn=0 }
+      name != "" && ver != "" {
+        printf "   \033[32m✓\033[0m %-32s %s\n", name, ver
+        name=""; ver=""; ai=0
+      }' "$regf" | head -20
+  else
+    echo -e "  No agent registry found (agent not installed)"
+  fi
+
+  # feature directories (optional components present on disk)
+  echo
+  echo -e "  ${BOLD}Feature directories (/usr/lib/Acronis):${RESET}"
+  local f
+  for f in BackupAndRecoveryAgent BackupAndRecovery CPS Schedule CommandLineTool VirtualWare PyTools; do
+    if [[ -d /usr/lib/Acronis/$f ]]; then
+      echo -e "   ${GREEN}✓${RESET} $f"
+    else
+      echo -e "   ${RED}✗${RESET} $f"
+    fi
+  done
+
+  # snapapi kernel module
+  echo
+  echo -e "  ${BOLD}Kernel module (snapapi):${RESET}"
+  if lsmod 2>/dev/null | grep -q snapapi; then
+    local modver
+    modver=$(modinfo snapapi26 2>/dev/null | awk -F': +' '/^version:/{print $2}')
+    echo -e "   ${GREEN}●${RESET} loaded in kernel${modver:+ (v$modver)}"
+  elif command -v dkms >/dev/null 2>&1 && dkms status 2>/dev/null | grep -qi snapapi; then
+    echo -e "   ${YELLOW}○${RESET} built via DKMS but not loaded — reboot may be needed"
+  else
+    echo -e "   ${RED}✗${RESET} not loaded — check: lsmod | grep snapapi"
+  fi
+
+  audit "components checked"
+  pause
 }
 
 ##############  SERVICE CHECK  ################
@@ -756,6 +853,11 @@ ${BOLD}[6] Clean Artifacts${RESET} (k)
    archives, port-checker download and kept .bin installers — from both
    ~/acronis-installer/ and legacy /tmp. Nothing else is touched.
 
+${BOLD}[8] Check Components${RESET} (v)
+   Inventory of installed Acronis components: agent version, registered
+   agents with versions, feature directories, and snapapi kernel module
+   state — useful to verify what an install actually put on the machine.
+
 ${BOLD}[7] Help${RESET} (h)
    This page.
 
@@ -779,6 +881,7 @@ cleanup() {
        \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
           -o -name 'acropsh_*.bin' -o -name 'Linux64.zip' \
           -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete 2>/dev/null
+  rm -rf "$OUT_DIR/installer-tmp" "$OUT_DIR/cvt_tool" 2>/dev/null
   success "Artifacts cleaned"
   pause
 }

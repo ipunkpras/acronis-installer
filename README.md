@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.7.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.6.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.7.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,17 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.7.0</b> — loading UX + [8] Check Components</summary>
+
+- **Real progress bars on downloads**: the 1.1 GB installer download now shows a live `% [####----] got/total (elapsed)` bar (polls size against Content-Length) instead of a frozen screen
+- **Font-safe spinner**: replaced the braille spinner (which rendered as boxes on PuTTY/Windows terminals) with ASCII `-\|/` plus elapsed seconds
+- **Install heartbeat** in human `mm:ss` format
+- **New [8] Check Components (v)**: agent version from `installer.version`, registered agents with versions parsed from the Acronis registry XML (e.g. "Agent for Linux (64-bit) 26.7.42848", "Agent for cPanel"), feature directories, and snapapi kernel-module state — a full inventory of what the install actually put on the machine
+- HEAD/Content-Length probe now only trusts `200` responses (501 error pages no longer poison the expected size)
+
+</details>
 
 <details>
 <summary><b>2.6.0</b> — install hardening: hidden token, components, tmp-dir, debug</summary>
