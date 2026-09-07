@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.14"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.15"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.15 — NEW: Transfer Outputs (menu [T] / shortcut t): ship all tool
+#   outputs (cvt/acropsh logs+zip, sysinfo system_report_*, audit log) to
+#   another host via SCP as one tarball. Acronis installer .bin NEVER sent.
 # 2.9.14 — FIX: spinner was invisible — outer ">/dev/null 2>&1" on run_bg
 #   silences the whole function including the spinner. Output redirect moved
 #   INSIDE (bash -c wrapper) — spinner prints, binary stays quiet.
@@ -366,6 +369,7 @@ show_main_menu() {
   printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET ${DIM}remove leftover tool files$RESET\n"
   printf " $CYAN[8] Check Components    $YELLOW(v)$RESET ${DIM}inventory installed components$RESET\n"
   printf " $BLUE[9] Collect SysInfo     $YELLOW(r)$RESET ${DIM}official system report (KB)$RESET\n"
+  printf " $MAGENTA[T] Transfer Outputs   $YELLOW(t)$RESET ${DIM}send logs+reports to another host$RESET\n"
 
   # 2.9.4: Help & Exit in their own misc column (not operational items)
   printf "%b ╾───────┤ misc ├───────╼%b\n" "$CYAN" "$RESET"
@@ -400,6 +404,7 @@ show_main_menu() {
     h|7) audit "MENU: help"; show_help;;
     v|8) audit "MENU: check components"; check_components;;
     r|9) audit "MENU: collect sysinfo start"; collect_sysinfo && audit "ACTION collect_sysinfo: OK" || { audit "ACTION collect_sysinfo: FAILED"; warn "SysInfo collection finished with error"; };;
+    t|T) audit "MENU: transfer outputs start"; transfer_outputs && audit "ACTION transfer_outputs: OK" || { audit "ACTION transfer_outputs: FAILED"; warn "Transfer finished with error"; };;
     q|0) audit "MENU: exit"; log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
   esac
@@ -1003,6 +1008,73 @@ collect_sysinfo() {
   error "  - acrocmd not found in PATH"
   pause
   return 1
+}
+
+##############  TRANSFER OUTPUTS  #############
+# 2.9.15: ship all tool outputs (logs + sysinfo reports) to another host via
+# SCP. Files: cvt_*.log, acropsh_*.log, acropsh_*.zip, system_report_*/
+# + the root audit log. Acronis installer .bin files are NEVER included.
+transfer_outputs() {
+  local host user path port tarball staging n files sz
+  log "Transfer Output Files" "$BOLD"
+  echo
+  info "Sends tool logs + sysinfo reports to another host via SCP."
+  info "Installer .bin files are never included."
+  echo
+
+  # gather candidates (maxdepth 1 keeps it predictable; sysinfo dirs matched too)
+  files=$(find "$OUT_DIR" -maxdepth 1 \
+    \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
+       -o -name 'system_report_*' \) -print 2>/dev/null | sort)
+  n=$(printf '%s\n' "$files" | grep -c . || true)
+  if [[ -z $files ]]; then
+    error "No output files found in $OUT_DIR"
+    error "Run the tools first (CVT / acropsh / Collect SysInfo)"
+    pause
+    return 1
+  fi
+  info "Found $n item(s):"
+  printf '%s\n' "$files" | sed "s|$OUT_DIR/|  |" | head -15
+  (( $(printf '%s\n' "$files" | wc -l) > 15 )) && info "  ... (more omitted)"
+  echo
+
+  # ask destination
+  read -rp "Destination host (IP/FQDN): " host
+  [[ -z $host ]] && { warn "No host given - cancelled"; pause; return 1; }
+  read -rp "SSH user [root]: " user; user=${user:-root}
+  read -rp "SSH port [22]: " port; port=${port:-22}
+  read -rp "Destination directory [~/acronis-collected]: " path
+  path=${path:-~/acronis-collected}
+
+  # stage one tarball (keeps names/timestamps, single scp round-trip)
+  staging=$(mktemp -d)
+  tarball="acronis-outputs_$(hostname)_$(date +%Y%m%d_%H%M%S).tar.gz"
+  # build UNCOMPRESSED first (tar cannot append to .gz), add audit log, then gzip
+  # shellcheck disable=SC2086  # word-splitting intended: one path per line
+  tar -cf "$staging/bundle.tar" -C "$OUT_DIR" $(printf '%s\n' "$files" | xargs -n1 basename) 2>/dev/null
+  [[ -r $AUDIT_LOG ]] && tar -rf "$staging/bundle.tar" -C "$(dirname "$AUDIT_LOG")" "$(basename "$AUDIT_LOG")" 2>/dev/null || true
+  gzip -c "$staging/bundle.tar" > "$staging/$tarball"
+  rm -f "$staging/bundle.tar"
+  sz=$(du -h "$staging/$tarball" | cut -f1)
+  info "Tarball: $tarball ($sz) - contents:"
+  tar -tzf "$staging/$tarball" | sed 's/^/  /' | head -20
+  echo
+
+  # send
+  info "Transferring to $user@$host:$port ..."
+  run_bg "uploading $tarball" bash -c \
+    'exec "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
+    scp "$port" "$staging/$tarball" "$user@$host" "$path/"
+  local rc=$?
+  if [[ $rc -eq 0 ]]; then
+    success "Transfer OK: $user@$host:$path/$tarball"
+    info "Extract on destination: tar -xzf $path/$tarball"
+  else
+    error "scp failed (exit $rc) - check host/user/password/key + reachability"
+  fi
+  rm -rf "$staging"
+  pause
+  return $rc
 }
 
 check_services() {

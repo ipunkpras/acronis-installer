@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.14-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.15-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.14/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.15/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,22 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.15</b> — NEW: Transfer Outputs to another host (menu [T], shortcut t)</summary>
+
+- Ships all tool outputs — CVT logs, acropsh logs/zip, Collect SysInfo
+  `system_report_*` reports and the audit log — to another host via **SCP** as
+  one timestamped tarball (`acronis-outputs_<host>_<ts>.tar.gz`).
+- Acronis **installer `.bin` files are never included** (name-pattern gather).
+- Interactive prompts: destination host / SSH user (default root) / port (22) /
+  remote directory (default `~/acronis-collected`).
+- `StrictHostKeyChecking=accept-new` — first connect doesn't hang on the
+  yes/no prompt; spinner + elapsed while uploading.
+- Tarball contents + size listed before sending; on completion the remote
+  path and extract command are printed.
+
+</details>
 
 <details>
 <summary><b>2.9.14</b> — FIX: spinner invisible during sysinfo collection</summary>
