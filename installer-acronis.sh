@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.2 — manual mode fix: run .bin directly on the controlling tty instead
+#   of piping through tee — Acronis' TUI wizard renders degenerate (tiny
+#   dialog in top-left corner) when stdout/stderr is a pipe, not a terminal
 # 2.9.1 — third mode "manual": guided portal/version/token/download flow
 #   then runs the .bin WITHOUT -a — Acronis' own interactive setup wizard
 #   (component checklist, F12 descriptions) drives the install
@@ -584,7 +587,14 @@ install_agent() {
   # options-file so it never appears on the command line.
   local AUTO=-a
   [[ $MODE == manual ]] && AUTO=""
-  "$BIN" $AUTO --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg > >(tee -a "$LOG") 2>&1 &
+  # 2.9.2: manual mode needs a REAL terminal — piping through tee makes the
+  # installer's TUI wizard render degenerate (tiny dialog in a corner).
+  # Run it directly on the controlling tty; progress messages also off.
+  local wait_rc
+  if [[ $MODE == manual ]]; then
+    "$BIN" $AUTO --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg
+    wait_rc=$?
+  else
   local pid=$! t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     sleep 30
@@ -594,7 +604,9 @@ install_agent() {
     fi
   done
   wait "$pid"
-  local rc=$?
+  wait_rc=$?
+  fi
+  local rc=$wait_rc
 
   # token file no longer needed — shred it
   command -v shred >/dev/null 2>&1 && shred -u "$OPTFILE" 2>/dev/null || rm -f "$OPTFILE"

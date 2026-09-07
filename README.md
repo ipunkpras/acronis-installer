@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.1-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.2-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.1/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.2/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,15 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.2</b> — manual-mode TUI fix: full-screen wizard</summary>
+
+Fix: in manual mode the .bin was still piped through `tee`, so Acronis' TUI wizard rendered degenerate — a tiny dialog pinned in the top-left corner of a big black terminal. Now manual mode runs the .bin **directly on the controlling terminal** (no pipe), so the wizard fills the screen exactly like a native run: full component checklist, F12 descriptions, Tab/Space navigation.
+
+cli/gui modes unchanged (they still get the tee'd live log + progress messages).
+
+</details>
 
 <details>
 <summary><b>2.9.1</b> — third install mode: manual (Acronis' own setup wizard)</summary>
