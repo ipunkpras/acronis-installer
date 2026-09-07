@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.12"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.13"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.13 — Collect SysInfo: spinner + live elapsed counter while the report
+#   collects (run_bg). Was fully silent for minutes — indistinguishable from
+#   a hang on log-heavy machines.
 # 2.9.12 — NEW: Collect System Information (menu [9] / shortcut r): official
 #   Acronis system report per KB — systeminfo binary (agent >= 11.8.177,
 #   report from /var/lib/Acronis/sysinfo/) with acrocmd sysinfo --loc=
@@ -943,7 +946,9 @@ collect_sysinfo() {
     info "Method: systeminfo binary (agent >= 11.8.177)"
     echo
     t0=$SECONDS
-    "$SI_BIN" >/dev/null 2>&1
+    # 2.9.13: spinner+elapsed while systeminfo collects (was silent — looked
+    # hung; KB says collection "may take a while depending on log size")
+    run_bg "collecting system report" "$SI_BIN" >/dev/null 2>&1
     local rc=$?
     # collect newest report file(s) from the official sysinfo dir
     if [[ -d $SI_DIR ]]; then
@@ -976,7 +981,8 @@ collect_sysinfo() {
     info "Method: acrocmd sysinfo (older agents)"
     echo
     t0=$SECONDS
-    acrocmd sysinfo --loc="$loc" >/dev/null 2>&1
+    # 2.9.13: spinner+elapsed (same as systeminfo path)
+    run_bg "collecting system report" acrocmd sysinfo --loc="$loc" >/dev/null 2>&1
     local rc=$?
     info "Elapsed: $((SECONDS - t0))s"
     if [[ -e $loc ]]; then
