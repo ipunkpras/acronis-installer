@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.4.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.4.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.4.1 — kmod note: informational message when acronis_kmod_service is
+#   inactive (oneshot DKMS builder — normal after module is built)
 # 2.4.0 — UX + audit layer:
 #  - audit(): every action (start/result/exit code) appended to
 #    /var/log/acronis-tools-<hostname>.log — one persistent audit trail
@@ -363,6 +365,12 @@ uninstall_agent() {
     acronis_mms "Managed Machine Service" \
     acronis_schedule "Schedule Service" \
     acronis_kmod_service "Kernel Module Service"
+  # kmod oneshot service: inactive after build = normal
+  if ! systemctl is-active --quiet acronis_kmod_service 2>/dev/null; then
+    info "acronis_kmod_service inactive is NORMAL — it is a one-shot DKMS helper"
+    info "that builds the snapapi kernel module (e.g. after kernel update),"
+    info "then exits. The loaded module stays working — check: lsmod | grep snapapi"
+  fi
   echo
   local confirmed
   read -rp "Type y to continue with uninstall [y/N]: " confirmed
@@ -398,6 +406,12 @@ check_services() {
     acronis_mms "Managed Machine Service" \
     acronis_schedule "Schedule Service" \
     acronis_kmod_service "Kernel Module Service"
+  # kmod oneshot service: inactive after build = normal
+  if ! systemctl is-active --quiet acronis_kmod_service 2>/dev/null; then
+    info "acronis_kmod_service inactive is NORMAL — it is a one-shot DKMS helper"
+    info "that builds the snapapi kernel module (e.g. after kernel update),"
+    info "then exits. The loaded module stays working — check: lsmod | grep snapapi"
+  fi
   if systemctl is-active --quiet acronis_mms 2>/dev/null; then
     success "Agent is healthy"
   else
