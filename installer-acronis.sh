@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.2.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.2.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.2.1 — changes (on top of 2.0.0 fixes):
+#  - CVT: password now read hidden by bash (read -s) and piped to CVT
+#    stdin — packed binary re-enables echo itself, stty -echo was not enough
 # 2.2.0 — changes (on top of 2.0.0 fixes):
 #  - CVT: password prompt no longer echoes to terminal/history
 #  - all user-facing messages now English
@@ -349,14 +352,16 @@ run_cvt_tool() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
-  local LOGIN
+  local LOGIN PASSWORD
   read -rp "Login: " LOGIN
-  # Hide password echo on the terminal. CVT prompts for the password on
-  # stdin itself; stty -echo only suppresses the display, not the input.
-  stty -echo
-  timeout 300 /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
-  local rc=${PIPESTATUS[0]}
-  stty echo
+  # 2.2.1: the packed CVT binary re-enables tty echo on its own prompt,
+  # so stty -echo cannot hide it. Instead bash reads the password hidden
+  # (read -s: no echo, nothing in history) and pipes it to CVT stdin.
+  read -rs -p "Password: " PASSWORD
+  echo
+  printf '%s\n' "$PASSWORD" | timeout 300 /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
+  local rc=${PIPESTATUS[1]}
+  unset PASSWORD
 
   echo ""
   if [[ $rc -eq 0 ]]; then
