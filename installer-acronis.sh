@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.1 — third mode "manual": guided portal/version/token/download flow
+#   then runs the .bin WITHOUT -a — Acronis' own interactive setup wizard
+#   (component checklist, F12 descriptions) drives the install
 # 2.9.0 — dual mode: gui (interactive menu, default) + cli (automation:
 #   ACRONIS_MODE=cli + ACRONIS_TOKEN/PORTAL/VERSION/COMPONENT/DEBUG/KEEP_BIN
 #   env vars, zero prompts, proper exit codes, pause suppressed)
@@ -85,7 +88,7 @@ DL_BASE="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
 # 2.9.0: MODE — "gui" (default interactive menu) or "cli" (automation).
 # CLI mode = no prompts: all install inputs come from ACRONIS_* env vars.
 MODE=${ACRONIS_MODE:-gui}
-[[ $MODE != cli && $MODE != gui ]] && MODE=gui
+[[ $MODE != cli && $MODE != gui && $MODE != manual ]] && MODE=gui
 
 ##############  UTILS  ########################
 log() { echo -e "${2:-}${BOLD}${1}${RESET}"; }
@@ -114,7 +117,7 @@ run_bg() {
 }
 
 pause() {
-  [[ $MODE == cli ]] && return 0
+  [[ $MODE == cli || $MODE == manual ]] && return 0
   echo
   read -n1 -rp "$(echo -e "${YELLOW}Press any key to return to menu...${RESET}")"
   echo
@@ -513,8 +516,10 @@ install_agent() {
   fi
 
   # 7b. component selection (P2, v2.6.0) — from the .bin itself
+  #      manual mode skips it: the installer wizard shows its own checklist
   step 5 "Select components (from installer)"
-  mapfile -t comps < <("$BIN" --components-list 2>/dev/null | grep -viE 'trueimage|permission denied' || true)
+  local comps=()
+  [[ $MODE != manual ]] && mapfile -t comps < <("$BIN" --components-list 2>/dev/null | grep -viE 'trueimage|permission denied' || true)
   local comp_arg=""
   if [[ ${#comps[@]} -gt 0 ]]; then
     if [[ $MODE == cli ]]; then
@@ -574,7 +579,12 @@ install_agent() {
   fi
 
   info "Installer output shown live. APT prereq phase may take 10-30 min — do not Ctrl-C."
-  "$BIN" -a --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg > >(tee -a "$LOG") 2>&1 &
+  # 2.9.1: manual mode drops -a so the installer's own TUI wizard shows
+  # (component checklist, F12 descriptions). Token still goes through the
+  # options-file so it never appears on the command line.
+  local AUTO=-a
+  [[ $MODE == manual ]] && AUTO=""
+  "$BIN" $AUTO --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg > >(tee -a "$LOG") 2>&1 &
   local pid=$! t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     sleep 30
@@ -947,9 +957,11 @@ show_help() {
   echo
   cat <<HELP
 ${BOLD}[1] Install Agent${RESET} (i)
-   Guided install, multi-portal. Set ACRONIS_MODE=cli for headless
-   automation (see README — all inputs via ACRONIS_* env vars, no
-   prompts, exit code usable in CI/Ansible). Pick the portal first (Datacomm
+   Guided install, multi-portal. Modes (ACRONIS_MODE):
+   gui (default, unattended -a install), manual (guided download then
+   Acronis' own interactive setup wizard — component checklist, F12),
+   cli (headless automation via ACRONIS_* env vars, exit codes for
+   CI/Ansible). See README for the full variable table. Pick the portal first (Datacomm
    preset, or a custom one with your own download base URL and optional
    registration-server override -C). The tool then fetches the version
    list from that portal, auto-selects the installer for your OS
@@ -1027,10 +1039,29 @@ check_and_install_unzip() {
   fi
 }
 
+##############  MANUAL INSTALL  ############
+# 2.9.1: manual mode = guided download + installer's own interactive TUI.
+# Uses the SAME interactive prompts as GUI mode (portal, version, token) —
+# only the install step differs: no -a, so Acronis' wizard (like the
+# component checklist with F12 help, Tab/Space navigation) appears.
+manual_install() {
+  local BIN_HINT=${ACRONIS_BIN:-}
+  # optional: run an already-downloaded .bin directly
+  if [[ -n $BIN_HINT && -f $BIN_HINT ]]; then
+    info "Using provided .bin: $BIN_HINT (ACRONIS_BIN)"
+    audit "manual mode: direct .bin $BIN_HINT"
+    "$BIN_HINT"
+    return $?
+  fi
+  MODE=manual
+  install_agent
+}
+
 ##############  MAIN  #######################
 # 2.9.0: cli mode — run install headless then exit (for automation).
 # usage:
 #   ACRONIS_MODE=cli ACRONIS_TOKEN=xxx [options] sudo -E ./installer-acronis.sh
+#   ACRONIS_MODE=manual [ACRONIS_BIN=/path/to/downloaded.bin] sudo -E ./installer-acronis.sh
 # options:
 #   ACRONIS_PORTAL    1 = Datacomm preset | full download-base URL (default 1)
 #   ACRONIS_RAIN      reg-server override -C (only with URL portal)
@@ -1038,6 +1069,16 @@ check_and_install_unzip() {
 #   ACRONIS_COMPONENT component id e.g. AgentForProxmox (default standard)
 #   ACRONIS_DEBUG     1 = installer -d verbose
 #   ACRONIS_KEEP_BIN 1 = keep downloaded .bin (default delete)
+if [[ $MODE == manual ]]; then
+  # 2.9.1: manual mode — run the Acronis installer .bin directly so its own
+  # interactive TUI (component checklist, F12 descriptions, Tab/Space) shows,
+  # with the same guided setup as GUI mode (portal, version, arch, download
+  # with progress bar, token hidden in options-file) — but install itself is
+  # the installer's native setup wizard, not unattended -a.
+  manual_install
+  exit $?
+fi
+
 if [[ $MODE == cli ]]; then
   [[ $EUID -ne 0 ]] && { error "cli mode must run as root (sudo -E)"; exit 1; }
   if install_agent; then

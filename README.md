@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.1-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.1/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -148,6 +148,21 @@ See [Releases](../../tags) for all tags.
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
 
 <details>
+<summary><b>2.9.1</b> — third install mode: manual (Acronis' own setup wizard)</summary>
+
+`ACRONIS_MODE=manual` — the guided part (portal picker, version, architecture auto-select, download with progress bar, token in the hidden options-file) stays interactive like GUI mode, but the install step **runs the .bin without `-a`**, so Acronis' own interactive setup wizard appears — the component checklist (Space to tick), F12 component descriptions, Tab navigation. For cases where you want the vendor TUI to drive the install.
+
+Bonus: `ACRONIS_BIN=/path/to/agent.bin` runs an already-downloaded installer wizard directly, skipping the guided flow.
+
+```bash
+ACRONIS_MODE=manual sudo -E ./installer-acronis.sh
+# or wizard on an existing .bin:
+ACRONIS_MODE=manual ACRONIS_BIN=~/acronis-installer/CyberProtect_AgentForLinux_x86_64.bin sudo -E ./installer-acronis.sh
+```
+
+</details>
+
+<details>
 <summary><b>2.9.0</b> — dual mode: interactive GUI + headless CLI automation</summary>
 
 **CLI mode** — zero prompts, exit codes usable in CI/Ansible/JumpServer automation:
@@ -170,7 +185,7 @@ ACRONIS_MODE=cli ACRONIS_TOKEN=xxx \
 
 - Missing token / bad version / bad component / unsupported arch → clean error + `exit 1` (never blocks on a prompt)
 - Everything the interactive flow does (multi-portal, arch auto-select, token-in-options-file hidden from `ps`, progress bar) works identically in CLI mode
-- GUI menu unchanged — it remains the default when `ACRONIS_MODE` is not set
+- GUI menu unchanged — it remains the default when `ACRONIS_MODE` is not set (`gui` = unattended `-a` install; `manual` = Acronis' own wizard, see 2.9.1)
 
 </details>
 
