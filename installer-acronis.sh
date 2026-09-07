@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.5"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.6"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.6 — no-flicker clock: menu painted once, clock line repainted in-place
+#   every 30s via cursor moves (was 1s full clear+redraw = terminal glitch);
+#   one-shot intro splash (shield arming pulse)
 # 2.9.5 — all user-facing output English; menu items aligned with short
 #   one-line descriptions (dim); Indonesian contact block translated
 # 2.9.4 — menu polish: header last-updated month/year + live WIB clock
@@ -247,14 +250,36 @@ agent_status_line() {
 show_main_menu() {
   local UPDATED="Sep 2026"   # 2.9.4: month/year of the last tool update
   local key
-  while :; do
-  clear
-  draw_box \
-    '🛡️   Acronis Cyber Protect Agent Tools' \
-    "$VERSION • https://dcloud.co.id"
-  printf "%b 📅 Updated: %-9s %b🕒 %s WIB%b\n" "$BOLD" "$UPDATED" "$RESET" "$(date '+%a %d %b %Y • %H:%M:%S')" "$RESET"
-  echo
-  log "Choose action:" "$BOLD"
+
+  # 2.9.6: one-shot intro splash — shield "arming" pulse (suits a protection
+  # tool): banner + growing cyan bars, then menu paints
+  splash() {
+    local i w
+    clear
+    draw_box \
+      '🛡️   Acronis Cyber Protect Agent Tools' \
+      "$VERSION • https://dcloud.co.id"
+    echo
+    for i in 1 2 3 4 5 6 7 8; do
+      w=$((i * 4))
+      printf '%b█%*s' "$CYAN" "$w" ''
+      printf '%b\r' "$RESET"
+      sleep 0.05
+    done
+    printf '%b%*s\n%b' "$CYAN" 32 '' "$RESET"
+    sleep 0.30
+  }
+
+  # 2.9.6: menu painted ONCE; clock updated in-place via cursor move —
+  # no clear+redraw each second => no glitch/flicker. Clock refresh: 30s.
+  render_menu() {
+    clear
+    draw_box \
+      '🛡️   Acronis Cyber Protect Agent Tools' \
+      "$VERSION • https://dcloud.co.id"
+    printf "%b 📅 Updated: %-9s %b🕒 %s WIB%b\n" "$BOLD" "$UPDATED" "$RESET" "$(date '+%a %d %b %Y • %H:%M:%S')" "$RESET"
+    echo
+    log "Choose action:" "$BOLD"
 
   # 2.9.5: aligned menu + one-line English descriptions per item
   printf " $GREEN[1] Install Agent       $YELLOW(i)$RESET ${DIM}guided multi-portal agent install$RESET\n"
@@ -270,14 +295,21 @@ show_main_menu() {
   printf " $WHITE[7] Help                $YELLOW(h)$RESET ${DIM}usage guide + contacts$RESET\n"
   printf " $RED[0] Exit               $YELLOW(q)$RESET ${DIM}quit to the shell$RESET"
 
-  echo
-  agent_status_line
-  echo
-  # 2.9.4: live clock — read timeout 1s, redraw menu sampai keypress
-  if read -rp "Press key (shortcut in yellow): " -n1 -t 1 key; then
+
     echo
-    break
-  fi
+    agent_status_line
+    echo
+  }
+
+  splash
+  # 2.9.6: clock redraw every 30s (was 1s) — glitch/flicker reduced 30x;
+  # full repaint chosen over cursor-jump tricks (fragile in web terminals)
+  while :; do
+    render_menu
+    if read -rp "Press key (shortcut in yellow): " -n1 -t 30 key; then
+      echo
+      break
+    fi
   done
   case "${key,,}" in
     i|1) audit "MENU: install_agent start";  install_agent  && audit "ACTION install_agent: OK"   || { audit "ACTION install_agent: FAILED"; warn "Install finished with error"; };;

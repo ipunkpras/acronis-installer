@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.5-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.6-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.5/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.6/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,14 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.6</b> — intro splash + glitch-free clock</summary>
+
+- **Intro splash**: one-shot "shield arming" animation (growing cyan bar under the banner) when the tool starts — fits the protection theme, gone in under a second
+- **Clock fix**: menu no longer clears+redraws every second. It repaints once every **30 seconds** — the 1 Hz full-screen redraw was the source of the terminal glitch/flicker
+
+</details>
 
 <details>
 <summary><b>2.9.5</b> — English-only output + aligned menu with descriptions</summary>
