@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.8-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.9-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.8/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.9/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,16 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.9</b> — header finished + host info in status block</summary>
+
+- **Updated-date + live clock moved inside the header box** as a third centered line — the old line printed below the box was left-anchored and could overflow past the box's right border. Pure ASCII (no emoji), per the 2.9.8 lesson
+- **Header box width now shrink-wraps** to the widest line (fixed 44 cols clipped long lines / left a ragged right side on short ones)
+- **New status line: `Host: <hostname> IP: <primary NIC>`** above the Agent status — shows the machine you're operating on at a glance. Primary NIC = the interface owning the default route's source address (via `ip route get`), so multi-NIC servers show the NIC that actually reaches the internet, not a list of all IPs
+- Help page header de-emojified (pure ASCII) so its box aligns too
+
+</details>
 
 <details>
 <summary><b>2.9.8</b> — header finally symmetric on every terminal</summary>

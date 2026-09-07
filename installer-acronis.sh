@@ -1,6 +1,11 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.8"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.9"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.9 — header polish + host info: updated-date/clock moved INSIDE the box
+#   as a third centered line, pure ASCII (the old line below the box was
+#   left-anchored and ran past the box edge); box width shrink-wraps to the
+#   widest line (fixed 44 cols left a ragged right side); new status line
+#   above Agent: hostname + primary-NIC IP (default-route source address)
 # 2.9.8 — header truly symmetric on ALL terminals: emoji removed from the
 #   box (its column width is font-dependent — the source of the ragged edge);
 #   shield emoji now lives in the one-shot splash, box interior is pure ASCII
@@ -190,30 +195,36 @@ svc_table() {
 [[ $EUID -ne 0 ]] && { echo "Please run as root"; exit 1; }
 
 ##############  MENU DRAWER  ##################
+# 2.9.9: locale-independent column counting (hoisted out of draw_box for reuse)
+display_width() {
+  local clean
+  clean=$(echo -e "$1" | sed 's/\x1b\[[0-9;]*m//g')
+  # 2.9.8: count columns robustly — strip non-ASCII bytes first (the only
+  # non-ASCII left in box lines is the • separator). wc -m counts BYTES in
+  # C locale and codepoints in UTF-8; neither equals columns for •.
+  # Column-truth: ASCII chars = 1 col; • = 1 col -> count = ASCII + non-ASCII
+  # groups. Simpler: replace non-ASCII runs with a single char each.
+  local ascii non
+  ascii=$(printf '%s' "$clean" | LC_ALL=C grep -o '[ -~]' | wc -l)
+  non=$(printf '%s' "$clean" | LC_ALL=C grep -oE '[^ -~]+' | wc -l)
+  echo $((ascii + non))
+}
+
 draw_box() {
   local -a lines=("$@")
-  local width=44
-
-  display_width() {
-    local clean
-    clean=$(echo -e "$1" | sed 's/\x1b\[[0-9;]*m//g')
-    local n
-    # 2.9.8: count columns robustly — strip non-ASCII bytes first (the only
-    # non-ASCII left in box lines is the • separator). wc -m counts BYTES in
-    # C locale and codepoints in UTF-8; neither equals columns for •.
-    # Column-truth: ASCII chars = 1 col; • = 1 col -> count = ASCII + non-ASCII
-    # groups. Simpler: replace non-ASCII runs with a single char each.
-    local ascii non
-    ascii=$(printf '%s' "$clean" | LC_ALL=C grep -o '[ -~]' | wc -l)
-    non=$(printf '%s' "$clean" | LC_ALL=C grep -oE '[^ -~]+' | wc -l)
-    n=$((ascii + non))
-    echo "$n"
-  }
+  # 2.9.9: width shrink-wraps to the widest line (fixed 44 clipped long
+  # lines and left a ragged right side on short ones)
+  local width=0 w ln
+  for ln in "${lines[@]}"; do
+    w=$(display_width "$ln")
+    (( w > width )) && width=$w
+  done
+  (( width < 20 )) && width=20
 
   local border
   border=$(printf '─%.0s' $(seq 1 "$width"))
   printf "%b╭─%s─╮%b\n" "$CYAN" "$border" "$RESET"
-  local ln pad padl
+  local pad padl
   for ln in "${lines[@]}"; do
     # 2.9.7: center each line — left pad split across both sides for a
     # symmetric header box (was left-anchored => ragged right side)
@@ -259,6 +270,16 @@ agent_status_line() {
   else
     echo -e " ${RED}○${RESET} Agent: ${RED}not installed${RESET}   ${BOLD}tool v${VERSION}${RESET}"
   fi
+}
+
+# 2.9.9: host identity — hostname + primary-NIC IP only (the NIC that owns
+# the default route's source address), shown in the status block.
+host_status_line() {
+  local hn ip
+  hn=$(hostname)
+  ip=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[0-9.]+')
+  [[ -z $ip ]] && ip="no route"
+  echo -e " ${BOLD}Host:${RESET} $hn   ${BOLD}IP:${RESET} $ip"
 }
 
 # 2.9.7: portal connectivity status — quick TCP probe (443) with short
@@ -308,10 +329,13 @@ show_main_menu() {
   # no clear+redraw each second => no glitch/flicker. Clock refresh: 30s.
   render_menu() {
     clear
+    # 2.9.9: updated-date + live clock moved INSIDE the box as a third
+    # centered line (was printed below the box, left-anchored, overflowing
+    # past the right border). Pure ASCII per the 2.9.8 lesson.
     draw_box \
       'Acronis Cyber Protect Agent Tools' \
-      "$VERSION • https://dcloud.co.id"
-    printf "%b 📅 Updated: %-9s %b🕒 %s WIB%b\n" "$BOLD" "$UPDATED" "$RESET" "$(date '+%a %d %b %Y • %H:%M:%S')" "$RESET"
+      "$VERSION • https://dcloud.co.id" \
+      "Updated: $UPDATED - $(date '+%a %d %b %Y • %H:%M:%S') WIB"
     echo
     log "Choose action:" "$BOLD"
 
@@ -331,6 +355,7 @@ show_main_menu() {
 
 
     printf "\n\n"          # 2.9.7: blank line between Exit and status block
+    host_status_line      # 2.9.9: hostname + primary-NIC IP
     agent_status_line
     portal_status_line
     printf "\n"
@@ -1059,8 +1084,9 @@ run_acropsh() {
 ##############  HELP  #######################
 show_help() {
   clear
+  # 2.9.9: pure-ASCII help header (emoji width broke box alignment)
   draw_box \
-    '📖   Acronis AIO Tools — Help' \
+    'Acronis AIO Tools - Help' \
     "$VERSION • press any key in menu to return"
   echo
   cat <<HELP
