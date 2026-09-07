@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.2.1-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -114,7 +114,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.2.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.2.1/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -139,10 +139,20 @@ See [Releases](../../tags) for all tags.
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
 
 <details>
-<summary><b>2.2.0</b> — CVT password hidden</summary>
+<summary><b>2.2.1</b> — CVT password really hidden</summary>
 
-- CVT password prompt no longer echoes to terminal or shell history (`stty -echo`)
-- Script header/version now SemVer (`readonly VERSION="2.2.0"`)
+- Root cause found: the packed CVT binary re-enables tty echo on its own password prompt, so `stty -echo` was not enough
+- Password is now read hidden by bash itself (`read -rs`) and piped to CVT stdin — nothing is ever echoed to screen or history
+- `unset PASSWORD` after use
+
+</details>
+
+<details>
+<summary><b>2.2.0</b> — English messages + SemVer</summary>
+
+- All user-facing messages translated to English
+- Script header/version now SemVer (`readonly VERSION`)
+- CVT: first attempt to hide password via `stty -echo` (superseded by 2.2.1)
 - Git tag `v2.2.0`
 
 </details>
