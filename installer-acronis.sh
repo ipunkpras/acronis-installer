@@ -1,6 +1,12 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.16"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.17"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.17 — NO-DEP+FIX: dropped sshpass entirely. Password auth now uses
+#   OpenSSH's NATIVE SSH_ASKPASS mechanism (helper script + env var in a
+#   subshell + setsid): zero new packages, zero restarts, no argv leak.
+#   Destination pre-check via ssh: mkdir -p + test -w; not writable (e.g.
+#   restricted user writing to /root) → automatic fallback /tmp/acronis-collected.
+#   Both exit paths (pw / key auth) report success or failure consistently.
 # 2.9.16 — FIX+SEC: Transfer Outputs never prompted for a password (scp ran
 #   detached via run_bg, stdin not connected — hung/fail silently). Now:
 #   hidden prompt (read -rs — not in shell history), password passed via
@@ -1066,41 +1072,74 @@ transfer_outputs() {
   echo
 
   # send
-  # 2.9.16: password prompt — hidden (read -rs: no echo, not in CLI history),
-  # passed via SSHPASS env var (sshpass -e): value never appears in ps aux,
-  # argv shows only "sshpass -e scp ...". Empty password = key-only auth.
-  check_and_install_sshpass || { error "sshpass required for password auth"; pause; return 1; }
+  # 2.9.17: no sshpass package needed. Password auth uses OpenSSH's NATIVE
+  # SSH_ASKPASS mechanism: a tiny helper script prints the password from an
+  # env var (set in a subshell, so it exists only for this scp). Zero new
+  # packages, no restart, no argv leak (ps aux shows only scp's argv).
+  # setsid: detaches controlling tty so ssh always prefers askpass —
+  # required on OpenSSH < 8.4 (RHEL8) which lacks SSH_ASKPASS_REQUIRE=force.
   info "Transferring to $user@$host:$port ..."
   info "Leave password empty if you use SSH key authentication."
   local pw
   read -rs -p "Password for $user@$host (input hidden): " pw
   echo
   if [[ -n $pw ]]; then
-    # password travels via ENV var of the child only (never argv):
-    # ( export ... ) runs in a subshell — SSHPASS exists only for this scp
-    ( export SSHPASS=$pw
-      unset pw
+    # askpass helper: reads password from ACRONIS_XFER_PW env var only
+    local helper; helper=$(mktemp)
+    printf '#!/bin/sh\nprintf %%s "$ACRONIS_XFER_PW"\n' > "$helper"
+    chmod 700 "$helper"
+    ( # password lives ONLY in this subshell's env + the helper reads it
+      export SSH_ASKPASS="$helper" SSH_ASKPASS_REQUIRE=force \
+             ACRONIS_XFER_PW=$pw DISPLAY=:0
+      local rc path_ok
+      # pre-check 1: connectivity + auth
+      if ! setsid ssh -p "$port" -o StrictHostKeyChecking=accept-new \
+           -o ConnectTimeout=10 "$user@$host" true </dev/null >/dev/null 2>&1; then
+        warn "SSH connection test failed - check host/user/password"
+        rm -f "$helper"; unset ACRONIS_XFER_PW; exit 1
+      fi
+      # pre-check 2: destination dir — mkdir + writable? else /tmp fallback
+      setsid ssh -p "$port" -o StrictHostKeyChecking=accept-new \
+        "$user@$host" "mkdir -p '$path' 2>/dev/null; test -w '$path' \
+         || { mkdir -p /tmp/acronis-collected 2>/dev/null; chmod 777 /tmp/acronis-collected 2>/dev/null; }" \
+        </dev/null >/dev/null 2>&1
+      path_ok=$(setsid ssh -p "$port" -o StrictHostKeyChecking=accept-new \
+        "$user@$host" "test -w '$path' && echo OK || echo NO" </dev/null 2>/dev/null)
+      if [[ $path_ok != OK ]]; then
+        warn "Remote '$path' not writable for $user - using /tmp/acronis-collected"
+        path=/tmp/acronis-collected
+      fi
+      # upload (setsid → askpass even without SSH_ASKPASS_REQUIRE support)
       run_bg "uploading $tarball" bash -c \
-        'exec sshpass -e "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
+        'exec setsid "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
         scp "$port" "$staging/$tarball" "$user@$host" "$path/"
-      local rc=$?
-      unset SSHPASS
+      rc=$?
+      unset ACRONIS_XFER_PW
+      rm -f "$helper"
+      xfer_report "$rc" "$user" "$host" "$path" "$tarball"
       exit $rc )
+    rc=$?   # capture subshell exit (fallback path resolution + scp rc)
   else
     run_bg "uploading $tarball" bash -c \
       'exec "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
       scp "$port" "$staging/$tarball" "$user@$host" "$path/"
-  fi
-  local rc=$?
-  if [[ $rc -eq 0 ]]; then
-    success "Transfer OK: $user@$host:$path/$tarball"
-    info "Extract on destination: tar -xzf $path/$tarball"
-  else
-    error "scp failed (exit $rc) - check host/user/password/key + reachability"
+    rc=$?
+    xfer_report "$rc" "$user" "$host" "$path" "$tarball"
   fi
   rm -rf "$staging"
   pause
   return $rc
+}
+
+# 2.9.17: single reporter — path fallback happens inside a subshell, so the
+# success line must be printed where the corrected $path is visible.
+xfer_report() {
+  if [[ $1 -eq 0 ]]; then
+    success "Transfer OK: $2@$3:$4/$5"
+    info "Extract on destination: tar -xzf $4/$5"
+  else
+    error "scp failed (exit $1) - check host/user/password/key + reachability"
+  fi
 }
 
 check_services() {
@@ -1380,17 +1419,6 @@ check_and_install_unzip() {
   elif command -v dnf     >/dev/null 2>&1; then dnf     install -y unzip
   elif command -v yum     >/dev/null 2>&1; then yum     install -y unzip
   elif command -v zypper  >/dev/null 2>&1; then zypper  -n install unzip
-  else error "No supported package manager"; return 1
-  fi
-}
-
-check_and_install_sshpass() {
-  command -v sshpass >/dev/null 2>&1 && return 0
-  warn "sshpass not found — installing..."
-  if   command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y sshpass
-  elif command -v dnf     >/dev/null 2>&1; then dnf     install -y sshpass
-  elif command -v yum     >/dev/null 2>&1; then yum     install -y sshpass
-  elif command -v zypper  >/dev/null 2>&1; then zypper  -n install sshpass
   else error "No supported package manager"; return 1
   fi
 }

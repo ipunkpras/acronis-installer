@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.16-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.17-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.16/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.17/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,23 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.17</b> — NO-DEP+FIX: no sshpass (native SSH_ASKPASS) + destination fallback</summary>
+
+- **Zero new packages**: password auth now uses OpenSSH's built-in
+  `SSH_ASKPASS` mechanism — a temp helper script reads the password from
+  an env var that exists only inside a subshell. No sshpass, no restarts,
+  no downtime, nothing appears in `ps aux` argv.
+- `setsid` + `SSH_ASKPASS_REQUIRE=force` make it work both on modern
+  OpenSSH and older ones (RHEL 8 era).
+- **Permission fix**: before upload, the script ssh-checks the destination
+  (`mkdir -p` + `test -w`). If the remote path is not writable for the SSH
+  user (e.g. non-root user, restricted home), it automatically falls back
+  to `/tmp/acronis-collected` on the destination and tells you.
+- Correct exit code + success line even when the fallback path was chosen.
+
+</details>
 
 <details>
 <summary><b>2.9.16</b> — FIX+SEC: hidden password prompt for Transfer Outputs</summary>
