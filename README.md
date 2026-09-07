@@ -139,10 +139,9 @@ See [Releases](../../tags) for all tags.
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
 
 <details>
-<summary><b>2.2.0</b> — CVT password hidden + full English messages</summary>
+<summary><b>2.2.0</b> — CVT password hidden</summary>
 
 - CVT password prompt no longer echoes to terminal or shell history (`stty -echo`)
-- All user-facing messages translated to English
 - Script header/version now SemVer (`readonly VERSION="2.2.0"`)
 - Git tag `v2.2.0`
 
