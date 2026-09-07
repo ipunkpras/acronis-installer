@@ -1,11 +1,13 @@
 #!/bin/bash
-# v2.1  Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-# Fix v2.0:
+# v2.2  Acronis Cyber Protect Agent Installer   •   dcloud.co.id
+# Fix v2.2 (on top of v2.0 fixes):
+#  - CVT: password prompt no longer echoes to terminal/history
+#  - all user-facing messages now English
 #  - exit code ASLI di-capture via wait (spinner v2.0 selalu return 0 →
-#    "Installation completed" palsu walau installer gagal)
+#    fake "Installation completed" even when installer failed)
 #  - download divalidasi: exit code + ukuran file vs Content-Length,
 #    progress bar nyata (bukan spinner diam), atomic (.tmp → move)
-#  - install: output live + heartbeat tiap 30s (tidak lagi "stuck gelap"),
+#  - install: live output + heartbeat every 30s (no more "dark stuck" feel),
 #    DEBIAN_FRONTEND=noninteractive + NEEDRESTART_MODE=a (skip prompt
 #    needrestart yang bikin fase APT kelihatan menggantung)
 #  - uninstall: cek exit code + verifikasi service mati + cek path dulu
@@ -13,8 +15,8 @@
 #  - cleanup: find dengan kurung (precedence) + pattern sempit,
 #    TIDAK lagi hapus semua *.zip di /tmp
 #  - check_and_install_unzip: tanpa sudo (script sudah root), apt-get -qq
-#  - set -e dilepas: menu tidak mati saat satu action gagal
-#  - post-install: verifikasi acronis_mms aktif
+#  - set -e removed: menu survives a failed action
+#  - post-install: verify acronis_mms active
 #  - dead code progress_bar dihapus
 
 set -uo pipefail
@@ -91,7 +93,7 @@ show_main_menu() {
   clear
   draw_box \
     '🛡️   Acronis Cyber Protect Agent Tools' \
-    'v2.1 • https://dcloud.co.id   • JKT,ID 2025'
+    'v2.2 • https://dcloud.co.id   • JKT,ID 2025'
   echo
   log "Choose action:" "$BOLD"
 
@@ -107,11 +109,11 @@ show_main_menu() {
   read -rp "Press key (shortcut in yellow): " -n1 key
   echo
   case "${key,,}" in
-    i|1) install_agent   || warn "Install selesai dengan error";;
-    u|2) uninstall_agent || warn "Uninstall selesai dengan error";;
+    i|1) install_agent   || warn "Install finished with error";;
+    u|2) uninstall_agent || warn "Uninstall finished with error";;
     s|3) check_services;;
-    a|4) run_acropsh     || warn "acropsh selesai dengan error";;
-    c|5) run_cvt_tool   || warn "CVT selesai dengan error";;
+    a|4) run_acropsh     || warn "acropsh finished with error";;
+    c|5) run_cvt_tool   || warn "CVT finished with error";;
     l|6) cleanup;;
     q|0) log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
@@ -245,12 +247,12 @@ install_agent() {
   # 8. install — live output + heartbeat, rc ASLI
   log_msg "Running installer ..."
   export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
-  info "Output installer tampil live. Fase prereq APT bisa 10-30 menit — jangan di-Ctrl-C."
+  info "Installer output shown live. APT prereq phase may take 10-30 min — do not Ctrl-C."
   "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 &
   local pid=$! t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     sleep 30
-    kill -0 "$pid" 2>/dev/null && info "installer masih jalan ... $((SECONDS-t0))s"
+    kill -0 "$pid" 2>/dev/null && info "installer still running ... $((SECONDS-t0))s"
   done
   wait "$pid"
   local rc=$?
@@ -260,10 +262,10 @@ install_agent() {
     log_msg "Installation completed successfully"
     sleep 5
     if systemctl is-active --quiet acronis_mms 2>/dev/null; then
-      success "service acronis_mms aktif"
+      success "service acronis_mms active"
       log_msg "acronis_mms active"
     else
-      warn "acronis_mms belum aktif — cek 'systemctl status acronis_mms' (kernel module kadang perlu reboot)"
+      warn "acronis_mms not active yet — check systemctl status acronis_mms (kernel module may need reboot)"
       log_msg "WARN: acronis_mms not active after install"
     fi
   else
@@ -291,7 +293,7 @@ install_agent() {
 uninstall_agent() {
   local u=/usr/lib/Acronis/BackupAndRecovery/uninstall/uninstall
   if [[ ! -x $u ]]; then
-    error "Uninstaller tidak ditemukan: $u"
+    error "Uninstaller not found: $u"
     warn "Agent terinstall? Cek: dpkg -l | grep -i acronis"
     pause
     return 1
@@ -306,8 +308,8 @@ uninstall_agent() {
   fi
   sleep 2
   systemctl is-active --quiet acronis_mms 2>/dev/null \
-    && warn "acronis_mms masih aktif — reboot mungkin diperlukan" \
-    || success "acronis_mms sudah tidak aktif"
+    && warn "acronis_mms still active — reboot may be required" \
+    || success "acronis_mms no longer active"
   pause
   return "$rc"
 }
@@ -331,13 +333,13 @@ run_cvt_tool() {
 
   info "Downloading CVT..."
   if ! download "https://dl.acronis.com/u/support/KB/Linux64.zip" /tmp/Linux64.zip; then
-    error "CVT download gagal (network?)"
+    error "CVT download failed (network?)"
     pause
     return 1
   fi
   check_and_install_unzip || { pause; return 1; }
   rm -rf /tmp/cvt_tool
-  unzip -q -o /tmp/Linux64.zip -d /tmp/cvt_tool || { error "unzip gagal"; pause; return 1; }
+  unzip -q -o /tmp/Linux64.zip -d /tmp/cvt_tool || { error "unzip failed"; pause; return 1; }
   chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
 
   echo ""
@@ -348,8 +350,12 @@ run_cvt_tool() {
 
   local LOGIN
   read -rp "Login: " LOGIN
+  # Hide password echo on the terminal. CVT prompts for the password on
+  # stdin itself; stty -echo only suppresses the display, not the input.
+  stty -echo
   timeout 300 /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
   local rc=${PIPESTATUS[0]}
+  stty echo
 
   echo ""
   if [[ $rc -eq 0 ]]; then
@@ -379,10 +385,10 @@ run_acropsh() {
     rm -f "$zip_file"
     if [[ -f /tmp/acropsh.zip ]]; then
       zip_file=/tmp/acropsh.zip
-      info "Menggunakan /tmp/acropsh.zip (unduhan manual)"
+      info "Using /tmp/acropsh.zip (manual download)"
     else
-      error "Download gagal (HTTP $code — link butuh auth / expired)"
-      info "Solusi: download manual via browser, simpan sebagai /tmp/acropsh.zip, lalu ulangi menu ini."
+      error "Download failed (HTTP $code — link requires auth / expired)"
+      info "Workaround: download manually via browser, save as /tmp/acropsh.zip, then rerun this menu item."
       pause
       return 1
     fi
@@ -413,7 +419,7 @@ run_acropsh() {
     if [[ -f "$extract_dir/linuxAgentChecks.py" ]]; then
       target_dir="$extract_dir"
     else
-      error "Struktur folder tidak sesuai. Isi extract:"
+      error "Unexpected folder structure. Extract contents:"
       find "$extract_dir" -type f | head -10
       rm -rf "$extract_dir"
       pause
