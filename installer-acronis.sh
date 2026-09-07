@@ -1,6 +1,7 @@
 #!/bin/bash
-# v2.2  Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-# Fix v2.2 (on top of v2.0 fixes):
+# Acronis Cyber Protect Agent Installer   •   dcloud.co.id
+readonly VERSION="2.2.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.2.0 — changes (on top of 2.0.0 fixes):
 #  - CVT: password prompt no longer echoes to terminal/history
 #  - all user-facing messages now English
 #  - exit code ASLI di-capture via wait (spinner v2.0 selalu return 0 →
@@ -93,7 +94,7 @@ show_main_menu() {
   clear
   draw_box \
     '🛡️   Acronis Cyber Protect Agent Tools' \
-    'v2.2 • https://dcloud.co.id   • JKT,ID 2025'
+    "$VERSION • https://dcloud.co.id   • JKT,ID 2025"
   echo
   log "Choose action:" "$BOLD"
 
@@ -175,11 +176,11 @@ install_agent() {
     [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
     warn "Enter number between 1 and ${#vers[@]}"
   done
-  local VERSION=${vers[$((num-1))]}
-  log_msg "User selected version: $VERSION"
+  local DL_VERSION=${vers[$((num-1))]}
+  log_msg "User selected version: $DL_VERSION"
 
   # 2. scan installer list
-  local BASE_URL="$DL_BASE/$VERSION"
+  local BASE_URL="$DL_BASE/$DL_VERSION"
   log_msg "Scanning installers at $BASE_URL ..."
   page=$(fetch_page "$BASE_URL/") || { error "Cannot reach $BASE_URL"; log_msg "ERROR: cannot reach $BASE_URL"; pause; return 1; }
   mapfile -t installers < <(grep -oP 'href="\K[^\"]+\.(bin|exe|dmg|spk)(?=\")' <<<"$page" | sort -uV)
