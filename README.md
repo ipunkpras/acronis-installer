@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.3-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.4-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.3/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.4/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,17 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.4</b> — menu polish: updated-date header, live clock, contact info</summary>
+
+- Header shows the tool's **last-updated month/year** + a **live WIB clock** on the main menu (refreshes every second; any keypress stops it instantly)
+- **Help** and **Exit** moved into their own separated "misc" column — visually distinct from the operational menu items
+- **Help page** now ends with contact information for support:
+
+  ipunk.prasetyo@datacomm.co.id • cloudoperation.engineer@datacomm.co.id
+
+</details>
 
 <details>
 <summary><b>2.9.3</b> — cleanup no longer deletes logs/audit trail</summary>

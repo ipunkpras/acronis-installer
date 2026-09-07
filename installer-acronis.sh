@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.4"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.4 — menu polish: header last-updated month/year + live WIB clock
+#   (1s redraw loop, keypress stops), Help/Exit separated into own misc
+#   column, Help page gets contact emails
 # 2.9.3 — cleanup fix: delete only the .bin + installer-tmp, not the whole
 #   ~/acronis-installer folder — rm -rf $TMP removed the install LOG and
 #   audit.log that tee was still writing to ("No such file or directory"
@@ -240,10 +243,14 @@ agent_status_line() {
 
 ##############  MAIN MENU  ####################
 show_main_menu() {
+  local UPDATED="Sep 2026"   # 2.9.4: bulan/tahun tool terakhir diupdate
+  local key
+  while :; do
   clear
   draw_box \
     '🛡️   Acronis Cyber Protect Agent Tools' \
-    "$VERSION • https://dcloud.co.id   • JKT,ID 2025"
+    "$VERSION • https://dcloud.co.id"
+  printf "%b 📅 Updated: %-9s %b🕒 %s WIB%b\n" "$BOLD" "$UPDATED" "$RESET" "$(date '+%a %d %b %Y • %H:%M:%S')" "$RESET"
   echo
   log "Choose action:" "$BOLD"
 
@@ -253,15 +260,22 @@ show_main_menu() {
   printf " $MAGENTA[4] acropsh Tool       $YELLOW(a)$RESET\n"
   printf " $CYAN[5] CVT Tool           $YELLOW(c)$RESET\n"
   printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET\n"
-  printf " $WHITE[7] Help                $YELLOW(h)$RESET\n"
   printf " $CYAN[8] Check Components    $YELLOW(v)$RESET\n"
-  printf " $RED[0] Exit               $YELLOW(q)$RESET\n"
+
+  # 2.9.4: Help & Exit dipisah kolom sendiri (bukan bagian operasional)
+  printf "%b ╾───────┤ misc ├───────╼%b\n" "$CYAN" "$RESET"
+  printf " $WHITE[7] Help                $YELLOW(h)$RESET\n"
+  printf " $RED[0] Exit               $YELLOW(q)$RESET"
 
   echo
   agent_status_line
   echo
-  read -rp "Press key (shortcut in yellow): " -n1 key
-  echo
+  # 2.9.4: live clock — read timeout 1s, redraw menu sampai keypress
+  if read -rp "Press key (shortcut in yellow): " -n1 -t 1 key; then
+    echo
+    break
+  fi
+  done
   case "${key,,}" in
     i|1) audit "MENU: install_agent start";  install_agent  && audit "ACTION install_agent: OK"   || { audit "ACTION install_agent: FAILED"; warn "Install finished with error"; };;
     u|2) audit "MENU: uninstall_agent start"; uninstall_agent && audit "ACTION uninstall_agent: OK" || { audit "ACTION uninstall_agent: FAILED"; warn "Uninstall finished with error"; };;
@@ -1031,6 +1045,11 @@ ${BOLD}[0] Exit${RESET} (q)
 
 ${BOLD}Audit trail:${RESET} every action is logged to
    ~/acronis-installer/audit.log (+ /var/log copy for root)
+
+${BOLD}Need help?${RESET}
+   Kendala dalam penggunaan tool ini? Hubungi:
+   ${CYAN}ipunk.prasetyo@datacomm.co.id${RESET}
+   ${CYAN}cloudoperation.engineer@datacomm.co.id${RESET}
 HELP
   pause
 }
