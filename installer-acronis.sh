@@ -1,80 +1,88 @@
 #!/bin/bash
-# v2.0  Acronis Cyber Protect Agent Installer
+# v2.1  Acronis Cyber Protect Agent Installer   •   dcloud.co.id
+# Fix v2.0:
+#  - exit code ASLI di-capture via wait (spinner v2.0 selalu return 0 →
+#    "Installation completed" palsu walau installer gagal)
+#  - download divalidasi: exit code + ukuran file vs Content-Length,
+#    progress bar nyata (bukan spinner diam), atomic (.tmp → move)
+#  - install: output live + heartbeat tiap 30s (tidak lagi "stuck gelap"),
+#    DEBIAN_FRONTEND=noninteractive + NEEDRESTART_MODE=a (skip prompt
+#    needrestart yang bikin fase APT kelihatan menggantung)
+#  - uninstall: cek exit code + verifikasi service mati + cek path dulu
+#  - acropsh: link SharePoint bisa 401 → deteksi + fallback /tmp/acropsh.zip
+#  - cleanup: find dengan kurung (precedence) + pattern sempit,
+#    TIDAK lagi hapus semua *.zip di /tmp
+#  - check_and_install_unzip: tanpa sudo (script sudah root), apt-get -qq
+#  - set -e dilepas: menu tidak mati saat satu action gagal
+#  - post-install: verifikasi acronis_mms aktif
+#  - dead code progress_bar dihapus
 
-set -euo pipefail
+set -uo pipefail
 
 ##############  COLOUR & THEME  ################
 RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'
 BLUE='\033[34m'; MAGENTA='\033[35m'; CYAN='\033[36m'
 BOLD='\033[1m'; RESET='\033[0m'
 
+DL_BASE="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
+
 ##############  UTILS  ########################
 log() { echo -e "${2:-}${BOLD}${1}${RESET}"; }
 success() { log "✅ ${1}" "$GREEN"; }
 error() { log "❌ ${1}" "$RED"; }
-warn() { log "⚠️  ${1}" "$YELLOW"; }
-info() { log "ℹ️  ${1}" "$BLUE"; }
+warn()  { log "⚠️  ${1}" "$YELLOW"; }
+info()  { log "ℹ️  ${1}" "$BLUE"; }
 
-# Progress bar (inline)  0-100%
-progress_bar() {
-  local prog=$1
-  local width=40
-  local fill=$(( prog * width / 100 ))
-  local empty=$(( width - fill ))
-  printf "\r["
-  printf "%${fill}s" | tr ' ' '█'
-  printf "%${empty}s" | tr ' ' '░'
-  printf "] %3d%%" "$prog"
-  [[ $prog -eq 100 ]] && echo
-}
-
+# spinner dengan line-clear (\033[K) — v2.0 menimpa baris tanpa clear
 spinner() {
-  local pid=$1
-  local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-  local i=0
+  local pid=$1 spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
   while kill -0 "$pid" 2>/dev/null; do
-    printf "\r${spin:i++%${#spin}:1}  ${2}..."
-    sleep 0.1
+    printf "\r\033[K%s %s..." "${spin:i++%${#spin}:1}" "$2"
+    sleep 0.15
   done
-  printf "\r"
+  printf "\r\033[K"
 }
+
+# jalankan cmd background + spinner, RETURN exit code asli via wait
+run_bg() {
+  local label=$1; shift
+  "$@" & local pid=$!
+  spinner "$pid" "$label"
+  wait "$pid"
+}
+
 pause() {
   echo
-  read -n 1 -rp "$(echo -e "${YELLOW}Press any key to return to menu...${RESET}")" 
+  read -n1 -rp "$(echo -e "${YELLOW}Press any key to return to menu...${RESET}")"
   echo
 }
 
 ##############  PRE-CHECK  ####################
-[[ $EUID -ne 0 ]] && { error "Please run as root"; exit 1; }
+[[ $EUID -ne 0 ]] && { echo "Please run as root"; exit 1; }
 
 ##############  MENU DRAWER  ##################
 draw_box() {
   local -a lines=("$@")
-  local width=44 
-  
-  display_width() {
-    local str="$1"
-   
-    local clean=$(echo -e "$str" | sed 's/\x1b\[[0-9;]*m//g')
-    local char_count=$(echo -n "$clean" | wc -m)
+  local width=44
 
-    if [[ "$clean" == *"🛡️"* ]]; then
-      char_count=$((char_count - 1))
-    fi
-    echo "$char_count"
+  display_width() {
+    local clean
+    clean=$(echo -e "$1" | sed 's/\x1b\[[0-9;]*m//g')
+    local n
+    n=$(echo -n "$clean" | wc -m)
+    [[ "$clean" == *"🛡️"* ]] && n=$((n - 1))
+    echo "$n"
   }
-  
-  local border=$(printf '─%.0s' $(seq 1 $width))
+
+  local border
+  border=$(printf '─%.0s' $(seq 1 "$width"))
   printf "%b╭─%s─╮%b\n" "$CYAN" "$border" "$RESET"
-  
+  local ln pad
   for ln in "${lines[@]}"; do
-    local content_width=$(display_width "$ln")
-    local pad=$((width - content_width))
+    pad=$((width - $(display_width "$ln")))
     [[ $pad -lt 0 ]] && pad=0
-    
     printf "%b│%b %s%*s%b │%b\n" "$CYAN" "$RESET" "$ln" "$pad" "" "$CYAN" "$RESET"
   done
-  
   printf "%b╰─%s─╯%b\n" "$CYAN" "$border" "$RESET"
 }
 
@@ -83,7 +91,7 @@ show_main_menu() {
   clear
   draw_box \
     '🛡️   Acronis Cyber Protect Agent Tools' \
-    'v2.0 • https://dcloud.co.id   • JKT,ID 2025'
+    'v2.1 • https://dcloud.co.id   • JKT,ID 2025'
   echo
   log "Choose action:" "$BOLD"
 
@@ -94,22 +102,54 @@ show_main_menu() {
   printf " $CYAN[5] CVT Tool          $YELLOW(c)$RESET\n"
   printf " $YELLOW[6] Cleanup Tmp       $YELLOW(l)$RESET\n"
   printf " $RED[0] Exit              $YELLOW(q)$RESET\n"
-  # -------------------------------------
 
   echo
-  read -rp "Press key (shortcut in yellow): " -n 1 key
+  read -rp "Press key (shortcut in yellow): " -n1 key
   echo
   case "${key,,}" in
-    i|1) install_agent ;;
-    u|2) uninstall_agent ;;
-    s|3) check_services ;;
-    a|4) run_acropsh ;;
-    c|5) run_cvt_tool ;;
-    l|6) cleanup ;;
-    q|0) log "Bye!" "$GREEN"; exit 0 ;;
-    *)   warn "Invalid choice"; sleep 1 ;;
+    i|1) install_agent   || warn "Install selesai dengan error";;
+    u|2) uninstall_agent || warn "Uninstall selesai dengan error";;
+    s|3) check_services;;
+    a|4) run_acropsh     || warn "acropsh selesai dengan error";;
+    c|5) run_cvt_tool   || warn "CVT selesai dengan error";;
+    l|6) cleanup;;
+    q|0) log "Bye!" "$GREEN"; exit 0;;
+    *)   warn "Invalid choice"; sleep 1;;
   esac
 }
+
+##############  FETCH HELPER  ##################
+# wget dengan fallback --no-check-certificate (self-signed di beberapa tenant)
+fetch_page() {
+  local url=$1 out
+  out=$(wget -qO- "$url" 2>/dev/null) && { printf '%s' "$out"; return 0; }
+  out=$(wget -qO- --no-check-certificate "$url" 2>/dev/null) && { printf '%s' "$out"; return 0; }
+  return 1
+}
+
+##############  DOWNLOAD HELPER  ##############
+# validated download: rc + size vs Content-Length, progress nyata, atomic
+download() {
+  local url=$1 dest=$2 expected got rc
+  expected=$(curl -sIL --max-time 20 "$url" 2>/dev/null \
+             | awk 'tolower($1) ~ /^content-length:/ {v=$2} END {print int(v)}' | tr -d '\r')
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --retry 3 --connect-timeout 15 -o "$dest.tmp" "$url"
+    rc=$?
+  else
+    wget -O "$dest.tmp" "$url"
+    rc=$?
+  fi
+  got=$(stat -c%s "$dest.tmp" 2>/dev/null || echo 0)
+  if [[ $rc -ne 0 || ( ${expected:-0} -gt 0 && $got -ne $expected ) ]]; then
+    rm -f "$dest.tmp"
+    return 1
+  fi
+  mv -f "$dest.tmp" "$dest"
+  chmod +x "$dest"
+  return 0
+}
+
 ###############  INSTALL AGENT  ################
 install_agent() {
   local LOG="/var/log/acronis-install-$(hostname)-$(date +%F-%H-%M).log"
@@ -119,107 +159,122 @@ install_agent() {
 
   # 1. choose version
   log_msg "Fetching available versions ..."
-  mapfile -t vers < <(wget -qO- https://cloudbackup.datacomm.co.id/download/u/baas/4.0/   |
-                        grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' | sort -V)
-  [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; pause; return; }
+  local page
+  page=$(fetch_page "$DL_BASE/") || { error "Cannot reach $DL_BASE"; log_msg "ERROR: cannot reach $DL_BASE"; pause; return 1; }
+  mapfile -t vers < <(grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' <<<"$page" | sort -uV)
+  [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; pause; return 1; }
 
   echo "Available versions:"
-  for i in "${!vers[@]}"; do
-      echo "  $((i+1)). ${vers[$i]}"
-  done
+  local i num
+  for i in "${!vers[@]}"; do echo "  $((i+1)). ${vers[$i]}"; done
 
   while true; do
-      read -rp "Select version number: " num
-      [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
-      warn "Enter number between 1 and ${#vers[@]}"
+    read -rp "Select version number: " num
+    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#vers[@]} )) && break
+    warn "Enter number between 1 and ${#vers[@]}"
   done
-  VERSION="${vers[$((num-1))]}"
+  local VERSION=${vers[$((num-1))]}
   log_msg "User selected version: $VERSION"
 
-  # 2. Scanning list installer
-  BASE_URL="https://cloudbackup.datacomm.co.id/download/u/baas/4.0/${VERSION}"
+  # 2. scan installer list
+  local BASE_URL="$DL_BASE/$VERSION"
   log_msg "Scanning installers at $BASE_URL ..."
-  mapfile -t installers < <(wget -qO- "$BASE_URL/" |
-                               grep -oP 'href="\K[^"]+\.(bin|exe|dmg|spk)(?=")' |
-                               sort -V)
-  [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; pause; return; }
+  page=$(fetch_page "$BASE_URL/") || { error "Cannot reach $BASE_URL"; log_msg "ERROR: cannot reach $BASE_URL"; pause; return 1; }
+  mapfile -t installers < <(grep -oP 'href="\K[^\"]+\.(bin|exe|dmg|spk)(?=\")' <<<"$page" | sort -uV)
+  [[ ${#installers[@]} -eq 0 ]] && { error "No installer found"; pause; return 1; }
 
-  # 3. FILTER: Input keyword from user
+  # 3. filter
   echo ""
   echo "Available installers (${#installers[@]} total):"
-  for i in "${!installers[@]}"; do
-      echo "  $((i+1)). ${installers[$i]}"
-  done
+  for i in "${!installers[@]}"; do echo "  $((i+1)). ${installers[$i]}"; done
 
   echo ""
+  local keyword
   read -rp "Enter filter keyword (or press Enter to show all): " keyword
-
-  # Filter installer
-  if [[ -n "$keyword" ]]; then
-      mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword")
-      if [[ ${#filtered[@]} -eq 0 ]]; then
-          warn "No installer matches keyword '$keyword', showing all installers"
-          filtered=("${installers[@]}")
-      else
-          log_msg "Filtered by keyword '$keyword': ${#filtered[@]} result(s)"
-      fi
-  else
+  local filtered=("${installers[@]}")
+  if [[ -n "${keyword:-}" ]]; then
+    mapfile -t filtered < <(printf '%s\n' "${installers[@]}" | grep -i "$keyword" || true)
+    if [[ ${#filtered[@]} -eq 0 ]]; then
+      warn "No installer matches keyword '$keyword', showing all installers"
       filtered=("${installers[@]}")
+    else
+      log_msg "Filtered by keyword '$keyword': ${#filtered[@]} result(s)"
+    fi
   fi
 
-  # Show filtered data
   echo ""
   echo "Filtered installers (${#filtered[@]} found):"
-  for i in "${!filtered[@]}"; do
-      echo "  $((i+1)). ${filtered[$i]}"
-  done
+  for i in "${!filtered[@]}"; do echo "  $((i+1)). ${filtered[$i]}"; done
 
-  # 4. choose filtered installer
-  [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return; }
-
+  # 4. choose installer
+  [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return 1; }
   while true; do
-      read -rp "Select installer number: " num
-      [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
-      warn "Enter number between 1 and ${#filtered[@]}"
+    read -rp "Select installer number: " num
+    [[ $num =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#filtered[@]} )) && break
+    warn "Enter number between 1 and ${#filtered[@]}"
   done
-  INSTALLER="${filtered[$((num-1))]}"
+  local INSTALLER=${filtered[$((num-1))]}
   log_msg "User selected installer: $INSTALLER"
 
-  # 5. Token
+  # 5. token
+  local TOKEN
   read -rp "Registration Token: " TOKEN
-  [[ -z $TOKEN ]] && { error "Token required"; pause; return; }
+  [[ -z $TOKEN ]] && { error "Token required"; pause; return 1; }
   log_msg "Token accepted (hidden)"
 
-  # 6. Folder & path download
-  REAL_USER=${SUDO_USER:-$USER}
+  # 6. path
+  local REAL_USER=${SUDO_USER:-$USER}
+  local REAL_HOME TMP BIN URL
   REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
   TMP=${TMP_DIR:-$REAL_HOME/acronis-installer}
   mkdir -p "$TMP"
   BIN=$TMP/$INSTALLER
   URL="$BASE_URL/$INSTALLER"
 
-  # 7. Download
+  # 7. download (validated)
   log_msg "Downloading installer to $BIN ..."
-  (wget -qO "$BIN" "$URL" 2>&1 | tee -a "$LOG") & spinner $! "Downloading"
-  [[ -f $BIN ]] || { error "Download failed"; log_msg "Download failed"; pause; return; }
-  chmod +x "$BIN"
-  log_msg "Download completed"
-
-  # 8. Install
-  log_msg "Running installer ..."
-  "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 & spinner $! "Installing"
-  local rc=$?
-  if [[ $rc -eq 0 ]]; then
-    success "Installation completed"
-    log_msg "Installation completed successfully"
+  if download "$URL" "$BIN"; then
+    log_msg "Download completed ($(numfmt --to=iec "$(stat -c%s "$BIN")" 2>/dev/null || stat -c%s "$BIN") bytes)"
   else
-    error "Installation failed (exit $rc)"
-    log_msg "Installation failed (exit $rc)"
+    error "Download failed (network / 404 / size mismatch)"
+    log_msg "Download failed"
     pause
     return 1
   fi
 
-  # 9. delete installer (Optional)
+  # 8. install — live output + heartbeat, rc ASLI
+  log_msg "Running installer ..."
+  export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
+  info "Output installer tampil live. Fase prereq APT bisa 10-30 menit — jangan di-Ctrl-C."
+  "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 &
+  local pid=$! t0=$SECONDS
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep 30
+    kill -0 "$pid" 2>/dev/null && info "installer masih jalan ... $((SECONDS-t0))s"
+  done
+  wait "$pid"
+  local rc=$?
+
+  if [[ $rc -eq 0 ]]; then
+    success "Installation completed (exit 0)"
+    log_msg "Installation completed successfully"
+    sleep 5
+    if systemctl is-active --quiet acronis_mms 2>/dev/null; then
+      success "service acronis_mms aktif"
+      log_msg "acronis_mms active"
+    else
+      warn "acronis_mms belum aktif — cek 'systemctl status acronis_mms' (kernel module kadang perlu reboot)"
+      log_msg "WARN: acronis_mms not active after install"
+    fi
+  else
+    error "Installation failed (exit $rc)"
+    log_msg "Installation failed (exit $rc)"
+    pause
+    return "$rc"
+  fi
+
+  # 9. optional delete
+  local del
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
     rm -rf "$TMP"
@@ -231,18 +286,37 @@ install_agent() {
   log_msg "=== Installation Finished ==="
   pause
 }
+
 ##############  UNINSTALL  ####################
 uninstall_agent() {
+  local u=/usr/lib/Acronis/BackupAndRecovery/uninstall/uninstall
+  if [[ ! -x $u ]]; then
+    error "Uninstaller tidak ditemukan: $u"
+    warn "Agent terinstall? Cek: dpkg -l | grep -i acronis"
+    pause
+    return 1
+  fi
   warn "Starting uninstall..."
-  /usr/lib/Acronis/BackupAndRecovery/uninstall/uninstall -a & spinner $! "Uninstalling"
-  success "Uninstall finished"
+  run_bg "Uninstalling" "$u" -a
+  local rc=$?
+  if [[ $rc -eq 0 ]]; then
+    success "Uninstall finished (exit 0)"
+  else
+    error "Uninstall failed (exit $rc)"
+  fi
+  sleep 2
+  systemctl is-active --quiet acronis_mms 2>/dev/null \
+    && warn "acronis_mms masih aktif — reboot mungkin diperlukan" \
+    || success "acronis_mms sudah tidak aktif"
   pause
+  return "$rc"
 }
 
 ##############  SERVICE CHECK  ################
 check_services() {
+  local svc
   for svc in aakore acronis_mms; do
-    if systemctl is-active --quiet "$svc"; then
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
       success "$svc is running"
     else
       error "$svc is NOT running"
@@ -252,60 +326,78 @@ check_services() {
 }
 
 ##############  CVT TOOL  #####################
-##############  CVT TOOL  #####################
 run_cvt_tool() {
   local output_file="/tmp/cvt_$(hostname)_$(date +%F).log"
-  
+
   info "Downloading CVT..."
-  wget -qO /tmp/Linux64.zip https://dl.acronis.com/u/support/KB/Linux64.zip  
-  check_and_install_unzip
-  unzip -q /tmp/Linux64.zip -d /tmp/cvt_tool
+  if ! download "https://dl.acronis.com/u/support/KB/Linux64.zip" /tmp/Linux64.zip; then
+    error "CVT download gagal (network?)"
+    pause
+    return 1
+  fi
+  check_and_install_unzip || { pause; return 1; }
+  rm -rf /tmp/cvt_tool
+  unzip -q -o /tmp/Linux64.zip -d /tmp/cvt_tool || { error "unzip gagal"; pause; return 1; }
   chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
-  
+
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   info "Output file will be saved to: $output_file"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
-  
+
+  local LOGIN
   read -rp "Login: " LOGIN
-  /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id | tee "$output_file"
-  
+  timeout 300 /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
+  local rc=${PIPESTATUS[0]}
+
   echo ""
-  success "CVT finished"
+  if [[ $rc -eq 0 ]]; then
+    success "CVT finished"
+  else
+    error "CVT failed (exit $rc)"
+  fi
   info "Log file saved at: $output_file"
   echo ""
-  
   pause
+  return "$rc"
 }
 
 ##############  ACROPSH  ######################
 run_acropsh() {
+  # NOTE: link SharePoint eksternal sering balas 401 utk wget/curl anonim.
+  # Fallback: download manual via browser → simpan /tmp/acropsh.zip → ulang menu ini.
   local acropsh_url='https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA&download=1'
   local zip_file="/tmp/acropsh_$(date +%s).zip"
-  local extract_dir="/tmp/acropsh_$(date +%s)"
-  
+  local extract_dir="/tmp/acropsh_x_$(date +%s)"
+
   info "Downloading acropsh..."
-  
-  # Download dengan follow redirect
-  if ! wget -L --max-redirect=5 -O "$zip_file" "$acropsh_url" 2>/dev/null; then
-    error "Failed to download acropsh"
+  local code
+  code=$(curl -sL --max-time 180 -o "$zip_file" -w '%{http_code}' "$acropsh_url" 2>/dev/null || echo 000)
+
+  if [[ $code != 200 ]]; then
     rm -f "$zip_file"
-    pause
-    return 1
+    if [[ -f /tmp/acropsh.zip ]]; then
+      zip_file=/tmp/acropsh.zip
+      info "Menggunakan /tmp/acropsh.zip (unduhan manual)"
+    else
+      error "Download gagal (HTTP $code — link butuh auth / expired)"
+      info "Solusi: download manual via browser, simpan sebagai /tmp/acropsh.zip, lalu ulangi menu ini."
+      pause
+      return 1
+    fi
   fi
-  
-  # Validasi file ZIP
+
   if ! file "$zip_file" | grep -q "Zip archive"; then
     error "Downloaded file is not a valid ZIP"
     rm -f "$zip_file"
     pause
     return 1
   fi
-  
-  check_and_install_unzip
-  
-  # Extract
+
+  check_and_install_unzip || { pause; return 1; }
+
+  rm -rf "$extract_dir"
   mkdir -p "$extract_dir"
   if ! unzip -q "$zip_file" -d "$extract_dir" 2>&1; then
     error "Failed to extract ZIP"
@@ -313,77 +405,67 @@ run_acropsh() {
     pause
     return 1
   fi
-  
-  # Cari direktori hasil extract (biasanya ada subfolder)
-  local target_dir=$(find "$extract_dir" -name "linux_installation_healthcheck" -type d 2>/dev/null | head -n1)
-  
-  # Jika tidak ketemu, cek isi extract_dir
-  if [[ -z "$target_dir" ]]; then
-    # Mungkin langsung isi tanpa subfolder
+
+  local target_dir
+  target_dir=$(find "$extract_dir" -name "linux_installation_healthcheck" -type d 2>/dev/null | head -n1)
+
+  if [[ -z $target_dir ]]; then
     if [[ -f "$extract_dir/linuxAgentChecks.py" ]]; then
       target_dir="$extract_dir"
     else
-      # List isi untuk debug
       error "Struktur folder tidak sesuai. Isi extract:"
       find "$extract_dir" -type f | head -10
-      rm -rf "$zip_file" "$extract_dir"
+      rm -rf "$extract_dir"
       pause
       return 1
     fi
   fi
-  
+
   info "Running acropsh from: $target_dir"
-  
-  # Jalankan dari direktori yang benar
   cd "$target_dir" || { error "Cannot cd to $target_dir"; pause; return 1; }
-  
-  # Cek apakah ada main.py atau linuxAgentChecks.py
+
+  local rc=1
   if [[ -f "main.py" ]]; then
-    python3 main.py
+    python3 main.py; rc=$?
   elif [[ -f "linuxAgentChecks.py" ]]; then
-    python3 linuxAgentChecks.py
+    python3 linuxAgentChecks.py; rc=$?
   else
     error "No main.py or linuxAgentChecks.py found"
     ls -la
-    cd - >/dev/null
-    rm -rf "$zip_file" "$extract_dir"
-    pause
-    return 1
   fi
-  
-  local rc=$?
-  cd - >/dev/null  # Kembali ke direktori sebelumnya
-  
+  cd - >/dev/null
+
   if [[ $rc -eq 0 ]]; then
     success "acropsh finished"
   else
     error "acropsh failed with exit code $rc"
   fi
-  
-  # Cleanup
+
   rm -rf "$zip_file" "$extract_dir"
   pause
+  return "$rc"
 }
 
 ##############  CLEANUP  ######################
 cleanup() {
   info "Cleaning temporary files..."
-  mapfile -t tmp < <(find /tmp -maxdepth 1 -type f -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name '*.zip' -o -name 'Linux64.zip')
-  for f in "${tmp[@]}"; do rm -f "$f" && printf "."; done
+  # ponytail: pattern sempit + kurung (precedence find) — jangan sentuh zip lain
+  find /tmp -maxdepth 1 -type f \
+       \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
+          -o -name 'Linux64.zip' \) -print -delete
   success "Cleanup done"
   pause
 }
 
 ##############  UNZIP HELPER  #################
 check_and_install_unzip() {
-  if ! command -v unzip &>/dev/null; then
-    warn "unzip not found"
-    if command -v apt &>/dev/null; then sudo apt update && sudo apt install -y unzip
-    elif command -v yum &>/dev/null; then sudo yum install -y unzip
-    elif command -v dnf &>/dev/null; then sudo dnf install -y unzip
-    elif command -v zypper &>/dev/null; then sudo zypper install -y unzip
-    else error "No supported package manager"; exit 1
-    fi
+  command -v unzip >/dev/null 2>&1 && return 0
+  warn "unzip not found — installing..."
+  if   command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y unzip
+  elif command -v dnf     >/dev/null 2>&1; then dnf     install -y unzip
+  elif command -v yum     >/dev/null 2>&1; then yum     install -y unzip
+  elif command -v zypper  >/dev/null 2>&1; then zypper  -n install unzip
+  else error "No supported package manager"; return 1
   fi
 }
 
