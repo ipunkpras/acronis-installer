@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.5.1-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -63,7 +63,7 @@ built for the Datacomm Cloud Business backup portal
 6. Script downloads (validated), then installs with live output + heartbeat.
 7. After install it verifies `acronis_mms` is active, then offers to delete the downloaded installer.
 
-> 📄 Install log: `/var/log/acronis-install-<HOSTNAME>-<DATE>.log`
+> 📄 Install log + downloaded installer: `~/acronis-installer/` (per user)
 > ⏱️ APT prerequisite phase can take 10–30 min — do **not** Ctrl-C; a heartbeat line prints every 30 s.
 
 ### [2] Uninstall Agent `(u)`
@@ -77,8 +77,10 @@ Green/red status for the two core agent services: `acronis_mms` and `aakore`.
 ### [4] acropsh Tool `(a)`
 Downloads and runs the official Acronis Linux agent health-check
 (`main.py` / `linuxAgentChecks.py`) from the Acronis support repository —
-analyzes internal agent state. If the SharePoint link 401s, drop the zip
-manually at `/tmp/acropsh.zip` and rerun this menu item.
+analyzes internal agent state. The HTML report is moved into
+`~/acronis-installer/` (chmod 644, owned by you). If the SharePoint link
+401s, drop the zip manually at `~/acronis-installer/acropsh.zip` and rerun
+this menu item.
 
 ### [5] CVT Tool `(c)`
 Downloads and runs the **MSP Port Checker**
@@ -86,7 +88,7 @@ Downloads and runs the **MSP Port Checker**
 `cloudbackup.datacomm.co.id` is open. You enter your Acronis Login ID; the
 password prompt is **hidden** (no echo — safe for screen-shares and history).
 
-> 📄 Result log: `/tmp/cvt_<HOSTNAME>_<DATE>.log`
+> 📄 Result log: `~/acronis-installer/cvt_<HOSTNAME>_<DATE>.log`
 
 ### [6] Clean Artifacts `(k)`
 Deletes only files this tool created: `cvt_*.log`, `acropsh_*.log`,
@@ -121,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.5.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.5.1/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -144,6 +146,16 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.5.1</b> — all outputs under ~/acronis-installer/</summary>
+
+- Every output now lands in the **real (sudo-invoking) user's** `~/acronis-installer/` directory — visible over SFTP without root: CVT log, acropsh zip + HTML report (moved from `/tmp` and chowned to the user), install log, and the downloaded installer `.bin`
+- Audit trail now dual-writes: `~/acronis-installer/audit.log` (user copy) + `/var/log/acronis-tools-<hostname>.log` (root copy)
+- Manual acropsh fallback path: `~/acronis-installer/acropsh.zip` (legacy `/tmp/acropsh.zip` still accepted)
+- Clean Artifacts cleans both `/tmp` (legacy) and `~/acronis-installer/`
+
+</details>
 
 <details>
 <summary><b>2.5.0</b> — Clean Artifacts rename + built-in Help</summary>

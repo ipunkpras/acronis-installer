@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.5.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.5.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.5.1 — all outputs now go to ~/acronis-installer/ (real user's home):
+#   CVT log, acropsh zip/report, install log+bin, audit copy. /var/log kept
 # 2.5.0 — menu: "Cleanup Tmp" renamed "Clean Artifacts" (k), added Help (h)
 #   page explaining every menu function; cleanup also removes kept .bin installers
 # 2.4.3 — install: auto-select installer matching OS architecture
@@ -86,11 +88,29 @@ pause() {
 }
 
 # 2.4.0: persistent audit trail — every action + result lands in one log
-AUDIT_LOG="/var/log/acronis-tools-$(hostname).log"
-audit() { echo "[$(date '+%F %T')] $*" >> "$AUDIT_LOG"; }
+AUDIT_LOG="/var/log/acronis-tools-$(hostname).log"   # root copy (2.5.1)
+audit() {
+  echo "[$(date '+%F %T')] $*" >> "$AUDIT_LOG"
+  [[ -n ${OUT_DIR:-} && -d $OUT_DIR ]] && echo "[$(date '+%F %T')] $*" >> "$OUT_DIR/audit.log"
+}
 
 # 2.4.0: numbered step label for guided flows
 step() { echo; echo -e "${BOLD}${CYAN}━━ Step $1: ${2}${RESET}"; }
+
+# 2.5.1: per-user output directory — all tool outputs land in the
+# real (sudo-invoking) user's ~/acronis-installer so they are visible
+# over SFTP without root. Falls back to /root when no SUDO_USER.
+out_dir() {
+  local ru=${SUDO_USER:-$USER}
+  local rh; rh=$(getent passwd "$ru" | cut -d: -f6)
+  [[ -z $rh || $rh == /nonexistent ]] && rh=/root
+  OUT_DIR="$rh/acronis-installer"
+  mkdir -p "$OUT_DIR"
+  chmod 755 "$OUT_DIR" 2>/dev/null || true
+  echo "$OUT_DIR"
+}
+OUT_DIR=$(out_dir)
+audit "output dir: $OUT_DIR"
 
 # 2.4.0: colored service summary table (reused by check + uninstall)
 svc_table() {
@@ -245,7 +265,9 @@ download() {
 
 ###############  INSTALL AGENT  ################
 install_agent() {
-  local LOG="/var/log/acronis-install-$(hostname)-$(date +%F-%H-%M).log"
+  local LOG="$OUT_DIR/acronis-install-$(hostname)-$(date +%F-%H-%M).log"
+  # root copy in /var/log kept for sysadmins; primary copy in user dir
+  { echo "[$(date '+%F %T')] install started on $(hostname)" >> "/var/log/acronis-install-$(hostname)-$(date +%F).log"; } 2>/dev/null || true
   log_msg() { echo -e "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
 
   log_msg "=== Acronis Agent Installation Started ==="
@@ -482,18 +504,18 @@ check_services() {
 
 ##############  CVT TOOL  #####################
 run_cvt_tool() {
-  local output_file="/tmp/cvt_$(hostname)_$(date +%F).log"
+  local output_file="$OUT_DIR/cvt_$(hostname)_$(date +%F).log"
 
   info "Downloading CVT..."
-  if ! download "https://dl.acronis.com/u/support/KB/Linux64.zip" /tmp/Linux64.zip; then
+  if ! download "https://dl.acronis.com/u/support/KB/Linux64.zip" "$OUT_DIR/Linux64.zip"; then
     error "CVT download failed (network?)"
     pause
     return 1
   fi
   check_and_install_unzip || { pause; return 1; }
-  rm -rf /tmp/cvt_tool
-  unzip -q -o /tmp/Linux64.zip -d /tmp/cvt_tool || { error "unzip failed"; pause; return 1; }
-  chmod +x /tmp/cvt_tool/msp_port_checker_packed.exe
+  rm -rf "$OUT_DIR/cvt_tool"
+  unzip -q -o "$OUT_DIR/Linux64.zip" -d "$OUT_DIR/cvt_tool" || { error "unzip failed"; pause; return 1; }
+  chmod +x "$OUT_DIR/cvt_tool/msp_port_checker_packed.exe"
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -508,7 +530,7 @@ run_cvt_tool() {
   # (read -s: no echo, nothing in history) and pipes it to CVT stdin.
   read -rs -p "Password: " PASSWORD
   echo
-  printf '%s\n' "$PASSWORD" | timeout 300 /tmp/cvt_tool/msp_port_checker_packed.exe -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
+  printf '%s\n' "$PASSWORD" | timeout 300 "$OUT_DIR/cvt_tool/msp_port_checker_packed.exe" -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
   local rc=${PIPESTATUS[1]}
   unset PASSWORD
 
@@ -532,8 +554,8 @@ run_acropsh() {
   local acropsh_url='https://acronis.sharepoint.com/:u:/s/SupportShareExternal/SAT/EZdG6C6SzMZFiSbypQmTi6kB48MuOQxqfG8JoIvxw4dhnQ?e=zyelOA'
   local share_ua='Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
   local cookiejar; cookiejar=$(mktemp)
-  local zip_file="/tmp/acropsh_$(date +%s).zip"
-  local extract_dir="/tmp/acropsh_x_$(date +%s)"
+  local zip_file="$OUT_DIR/acropsh_$(date +%s).zip"
+  local extract_dir="$OUT_DIR/acropsh_x_$(date +%s)"
 
   info "Downloading acropsh (2-step SharePoint auth)..."
   # step 1: visit the share page to obtain the session cookie
@@ -547,12 +569,15 @@ run_acropsh() {
 
   if [[ $code != 200 ]]; then
     rm -f "$zip_file"
-    if [[ -f /tmp/acropsh.zip ]]; then
+    if [[ -f "$OUT_DIR/acropsh.zip" ]]; then
+      zip_file="$OUT_DIR/acropsh.zip"
+      info "Using $OUT_DIR/acropsh.zip (manual download)"
+    elif [[ -f /tmp/acropsh.zip ]]; then
       zip_file=/tmp/acropsh.zip
-      info "Using /tmp/acropsh.zip (manual download)"
+      info "Using /tmp/acropsh.zip (manual download, legacy path)"
     else
       error "Download failed (HTTP $code — link requires auth / expired)"
-      info "Workaround: download manually via browser, save as /tmp/acropsh.zip, then rerun this menu item."
+      info "Workaround: download manually via browser, save as $OUT_DIR/acropsh.zip, then rerun this menu item."
       pause
       return 1
     fi
@@ -612,8 +637,16 @@ run_acropsh() {
   local report
   report=$(ls -t /tmp/*-service_summary.html 2>/dev/null | head -n1)
   if [[ -n $report ]]; then
-    chmod 644 "$report"
-    info "Report (readable via SFTP): $report"
+    # 2.5.1: move into ~/acronis-installer and hand ownership to the real user
+    local ru=${SUDO_USER:-$USER}
+    local moved="$OUT_DIR/$(basename "$report")"
+    mv -f "$report" "$moved"
+    chmod 644 "$moved"
+    getent passwd "$ru" >/dev/null 2>&1 && chown "$ru:" "$moved" 2>/dev/null
+    info "Report (fetchable via SFTP): $moved"
+    audit "acropsh report: $moved"
+  else
+    report="$OUT_DIR"
   fi
 
   if [[ $rc -eq 0 ]]; then
@@ -639,7 +672,7 @@ ${BOLD}[1] Install Agent${RESET} (i)
    Guided install. Fetches version list from the Datacomm portal,
    auto-selects the installer for your OS architecture, asks for the
    registration token, then installs with live output + 30s heartbeat.
-   Log: /var/log/acronis-install-<hostname>-<date>.log
+   Log + downloaded installer: ~/acronis-installer/ (per user)
 
 ${BOLD}[2] Uninstall Agent${RESET} (u)
    Two-step confirmation (y/N, then type UNINSTALL) after showing a
@@ -651,18 +684,18 @@ ${BOLD}[3] Check Services${RESET} (s)
 
 ${BOLD}[4] acropsh Tool${RESET} (a)
    Downloads and runs the official Acronis Linux health-check
-   (linux_installation_healthcheck). Report (chmod 644):
-   /tmp/*-service_summary.html
+   (linux_installation_healthcheck). Report lands in
+   ~/acronis-installer/ (chmod 644, owned by you)
 
 ${BOLD}[5] CVT Tool${RESET} (c)
    MSP Port Checker — verifies required ports to
    cloudbackup.datacomm.co.id. Password input is hidden (never echoed).
-   Log: /tmp/cvt_<hostname>_<date>.log
+   Log: ~/acronis-installer/cvt_<hostname>_<date>.log
 
 ${BOLD}[6] Clean Artifacts${RESET} (k)
-   Removes leftover files this tool created in /tmp: CVT logs/zips,
-   acropsh archives, and the port-checker download. Nothing else is
-   touched. Also removes the downloaded .bin installer if you kept it.
+   Removes leftover files this tool created: CVT logs/zips, acropsh
+   archives, port-checker download and kept .bin installers — in /tmp
+   (legacy) and ~/acronis-installer/. Nothing else is touched.
 
 ${BOLD}[7] Help${RESET} (h)
    This page.
@@ -671,7 +704,7 @@ ${BOLD}[0] Exit${RESET} (q)
    Quit to the shell.
 
 ${BOLD}Audit trail:${RESET} every action is logged to
-   /var/log/acronis-tools-<hostname>.log
+   ~/acronis-installer/audit.log (+ /var/log copy for root)
 HELP
   pause
 }
@@ -681,8 +714,12 @@ cleanup() {
   # ponytail: narrow patterns + parens (find precedence) — never touch other zips
   find /tmp -maxdepth 1 -type f \
        \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
+          -o -name 'Linux64.zip' -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete 2>/dev/null
+  # v2.5.1 artifacts now live in ~/acronis-installer — clean same patterns there
+  find "$OUT_DIR" -maxdepth 1 -type f \
+       \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
           -o -name 'acropsh_*.bin' -o -name 'Linux64.zip' \
-          -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete
+          -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete 2>/dev/null
   success "Artifacts cleaned"
   pause
 }
