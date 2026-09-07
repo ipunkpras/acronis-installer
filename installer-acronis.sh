@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.7"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.8"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.8 — header truly symmetric on ALL terminals: emoji removed from the
+#   box (its column width is font-dependent — the source of the ragged edge);
+#   shield emoji now lives in the one-shot splash, box interior is pure ASCII
 # 2.9.7 — header box symmetric (centered lines); blank line before agent
 #   status; new portal connectivity status line (TCP probe :443, 3s timeout)
 # 2.9.6 — no-flicker clock: menu painted once, clock line repainted in-place
@@ -195,11 +198,15 @@ draw_box() {
     local clean
     clean=$(echo -e "$1" | sed 's/\x1b\[[0-9;]*m//g')
     local n
-    n=$(echo -n "$clean" | wc -m)
-    # ponytail: emoji-width handling is font/locale dependent (UTF-8 wc -m
-    # counts 2 codepoints for 🛡️ which matches its 2-column render here).
-    # If a user's terminal shows the box 1 col off, tune this adjustment.
-    [[ "$clean" == *"🛡️"* ]] && n=$((n - 0))
+    # 2.9.8: count columns robustly — strip non-ASCII bytes first (the only
+    # non-ASCII left in box lines is the • separator). wc -m counts BYTES in
+    # C locale and codepoints in UTF-8; neither equals columns for •.
+    # Column-truth: ASCII chars = 1 col; • = 1 col -> count = ASCII + non-ASCII
+    # groups. Simpler: replace non-ASCII runs with a single char each.
+    local ascii non
+    ascii=$(printf '%s' "$clean" | LC_ALL=C grep -o '[ -~]' | wc -l)
+    non=$(printf '%s' "$clean" | LC_ALL=C grep -oE '[^ -~]+' | wc -l)
+    n=$((ascii + non))
     echo "$n"
   }
 
@@ -281,8 +288,10 @@ show_main_menu() {
   splash() {
     local i w
     clear
+    echo
+    printf '   🛡️\n\n'   # 2.9.8: shield lives in the splash now
     draw_box \
-      '🛡️   Acronis Cyber Protect Agent Tools' \
+      'Acronis Cyber Protect Agent Tools' \
       "$VERSION • https://dcloud.co.id"
     echo
     for i in 1 2 3 4 5 6 7 8; do
@@ -300,7 +309,7 @@ show_main_menu() {
   render_menu() {
     clear
     draw_box \
-      '🛡️   Acronis Cyber Protect Agent Tools' \
+      'Acronis Cyber Protect Agent Tools' \
       "$VERSION • https://dcloud.co.id"
     printf "%b 📅 Updated: %-9s %b🕒 %s WIB%b\n" "$BOLD" "$UPDATED" "$RESET" "$(date '+%a %d %b %Y • %H:%M:%S')" "$RESET"
     echo
