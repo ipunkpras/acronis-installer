@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.10-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.11-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.10/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.11/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,19 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.11</b> — CRITICAL: gui/cli install actually runs the installer again</summary>
+
+- **Bug (since 2.9.2):** the 2.9.2 manual-mode refactor accidentally deleted the
+  gui/cli launch line — the downloaded `.bin` was **never executed**. The script
+  waited on the (already-dead) download pid → fake `Installation completed (exit 0)`
+  in seconds and `acronis_mms not active` afterwards.
+- **Fix:** restored `"$BIN" $AUTO --options-file=... > >(tee -a "$LOG") 2>&1 &` in
+  the gui/cli branch; exit code now comes from the real installer process.
+- Manual (tty) mode was unaffected.
+
+</details>
 
 <details>
 <summary><b>2.9.10</b> — Check Components fits one screen</summary>

@@ -1,6 +1,11 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.10"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.11"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.11 — CRITICAL: restored gui/cli installer launch line deleted by the
+#   2.9.2 manual-mode refactor. Since 2.9.2 the .bin never executed in gui/cli
+#   mode: pid=$! grabbed the finished download pid, wait returned stale exit 0,
+#   and the script reported "Installation completed" falsely. All gui/cli
+#   installs since 2.9.2 (six releases) were no-ops.
 # 2.9.10 — Check Components output compacted to fit one screen on short
 #   terminals: feature dirs now ONE line (was 7), section separator dropped.
 #   Symptom fixed: snapapi status + "Press any key" prompt scrolled off-screen.
@@ -711,6 +716,10 @@ install_agent() {
     "$BIN" $AUTO --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg
     wait_rc=$?
   else
+  # 2.9.11: restored the gui/cli launch line lost in the 2.9.2 manual-mode
+  # refactor — without it "$BIN" never ran; pid=$! captured the dead download
+  # pid and wait returned its stale exit 0 ("Installation completed" was fake).
+  "$BIN" $AUTO --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg > >(tee -a "$LOG") 2>&1 &
   local pid=$! t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     sleep 30
