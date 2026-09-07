@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.2-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.3-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.2/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.3/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,13 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.3</b> — cleanup no longer deletes logs/audit trail</summary>
+
+Fix: the post-install cleanup used `rm -rf` on the whole `~/acronis-installer` folder, which also removed the install log `tee` was still writing to (the "No such file or directory" right after "Installer deleted") and wiped `audit.log` on every install. Cleanup now deletes only the `.bin` installer + its `installer-tmp` directory — logs and audit trail stay.
+
+</details>
 
 <details>
 <summary><b>2.9.2</b> — manual-mode TUI fix: full-screen wizard</summary>

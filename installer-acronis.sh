@@ -1,6 +1,10 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.3 — cleanup fix: delete only the .bin + installer-tmp, not the whole
+#   ~/acronis-installer folder — rm -rf $TMP removed the install LOG and
+#   audit.log that tee was still writing to ("No such file or directory"
+#   after "Installer deleted"), and wiped the audit trail every install
 # 2.9.2 — manual mode fix: run .bin directly on the controlling tty instead
 #   of piping through tee — Acronis' TUI wizard renders degenerate (tiny
 #   dialog in top-left corner) when stdout/stderr is a pipe, not a terminal
@@ -632,17 +636,25 @@ install_agent() {
   # 9. optional delete (cli: ACRONIS_KEEP_BIN=1 keeps, default deletes)
   step 7 "Cleanup installer file"
   local del
+  clean_bin() {
+    # 2.9.3: delete only the .bin + its tmp dir — NOT the whole folder.
+    # The folder also holds the install LOG + audit.log that log_msg is
+    # still writing to (tee died with "No such file or directory" when
+    # rm -rf $TMP removed them mid-write).
+    rm -f "$TMP"/CyberProtect*.bin
+    rm -rf "$TMP/installer-tmp"
+  }
   if [[ $MODE == cli ]]; then
     if [[ ${ACRONIS_KEEP_BIN:-0} == 1 ]]; then
       log_msg "Installer kept at $TMP"
     else
-      rm -rf "$TMP"
+      clean_bin
       log_msg "Installer deleted [cli default]"
     fi
   else
     read -rp "Delete installer? [y/N] " del
     if [[ $del =~ ^[Yy]$ ]]; then
-      rm -rf "$TMP"
+      clean_bin
       log_msg "Installer deleted"
     else
       log_msg "Installer kept at $TMP"
