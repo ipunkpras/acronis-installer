@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.5.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.5.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.5.3 — acropsh: TMPDIR=OUT_DIR (reports born in ~/acronis-installer, no
+#   post-run mv); cleanup message reflects both paths
 # 2.5.2 — help page fix: color vars now ANSI-C quoted ($'\033[..]m') so
 #   heredoc renders colors instead of literal escape codes
 # 2.5.1 — all outputs now go to ~/acronis-installer/ (real user's home):
@@ -625,6 +627,9 @@ run_acropsh() {
   info "Running acropsh from: $target_dir"
   cd "$target_dir" || { error "Cannot cd to $target_dir"; pause; return 1; }
 
+  # 2.5.3: Python tempfile defaults to /tmp — point TMPDIR at OUT_DIR so
+  # the HTML report is born inside ~/acronis-installer, no mv needed later
+  export TMPDIR="$OUT_DIR"
   local rc=1
   if [[ -f "main.py" ]]; then
     python3 main.py; rc=$?
@@ -641,12 +646,15 @@ run_acropsh() {
   # Make the newest service_summary report world-readable so it can be
   # fetched without root.
   local report
-  report=$(ls -t /tmp/*-service_summary.html 2>/dev/null | head -n1)
+  # 2.5.3: TMPDIR=OUT_DIR means new reports are born in OUT_DIR already;
+  # /tmp scan kept only for legacy reports from older tool versions
+  report=$(ls -t "$OUT_DIR"/*-service_summary.html 2>/dev/null | head -n1)
+  [[ -z $report ]] && report=$(ls -t /tmp/*-service_summary.html 2>/dev/null | head -n1)
   if [[ -n $report ]]; then
     # 2.5.1: move into ~/acronis-installer and hand ownership to the real user
     local ru=${SUDO_USER:-$USER}
-    local moved="$OUT_DIR/$(basename "$report")"
-    mv -f "$report" "$moved"
+    local moved="$report"
+    [[ $report == "$OUT_DIR"/* ]] || { moved="$OUT_DIR/$(basename "$report")"; mv -f "$report" "$moved"; }
     chmod 644 "$moved"
     getent passwd "$ru" >/dev/null 2>&1 && chown "$ru:" "$moved" 2>/dev/null
     info "Report (fetchable via SFTP): $moved"
@@ -700,8 +708,8 @@ ${BOLD}[5] CVT Tool${RESET} (c)
 
 ${BOLD}[6] Clean Artifacts${RESET} (k)
    Removes leftover files this tool created: CVT logs/zips, acropsh
-   archives, port-checker download and kept .bin installers — in /tmp
-   (legacy) and ~/acronis-installer/. Nothing else is touched.
+   archives, port-checker download and kept .bin installers — from both
+   ~/acronis-installer/ and legacy /tmp. Nothing else is touched.
 
 ${BOLD}[7] Help${RESET} (h)
    This page.
@@ -716,7 +724,7 @@ HELP
 }
 ##############  CLEANUP  ######################
 cleanup() {
-  info "Cleaning tool artifacts in /tmp (CVT / acropsh / port-checker)..."
+  info "Cleaning tool artifacts (~/.acronis-installer + legacy /tmp)..."
   # ponytail: narrow patterns + parens (find precedence) — never touch other zips
   find /tmp -maxdepth 1 -type f \
        \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
