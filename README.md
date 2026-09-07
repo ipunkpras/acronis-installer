@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.3.1-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -40,13 +40,15 @@ built for the Datacomm Cloud Business backup portal
 ```
 🛡️   Acronis Cyber Protect Agent Tools
 ─────────────────────────────────────────
- [1] Install Agent      (i)   → full guided install with token
- [2] Uninstall Agent    (u)   → clean removal + service verify
- [3] Check Services     (s)   → acronis_mms / aakore status
+ [1] Install Agent      (i)   → guided install: numbered steps 1-6
+ [2] Uninstall Agent    (u)   → TWO-STEP confirm + service summary first
+ [3] Check Services     (s)   → colored status table + health verdict
  [4] acropsh Tool       (a)   → agent health-check scripts
- [5] CVT Tool           (c)   → port connectivity checker
+ [5] CVT Tool           (c)   → port connectivity checker (hidden password)
  [6] Cleanup Tmp        (l)   → remove tool leftovers in /tmp
  [0] Exit               (q)
+ ────────────────────────────
+ ● Agent status: live acronis_mms state shown under the menu
 ```
 
 <details>
@@ -114,7 +116,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.3.1/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.4.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -137,6 +139,18 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.4.0</b> — UX overhaul + audit trail + safe uninstall</summary>
+
+- **Audit trail**: every action (start, result, exit code) is appended to `/var/log/acronis-tools-<hostname>.log` — one persistent, reviewable history per host
+- **Uninstall is now two-step**: a service summary table is shown **before** anything is removed, then `y/N` confirmation, then typing `UNINSTALL` in full — no accidental removals
+- **Pre-uninstall service summary**: colored table of `aakore`, `acronis_mms`, `acronis_schedule`, `acronis_kmod_service` states
+- **Numbered step labels** (`Step 1 … Step 6`) guide the install flow
+- **Menu footer**: live `acronis_mms` status dot + version shown under the menu
+- `Check Services` now renders the same colored table + overall health verdict
+
+</details>
 
 <details>
 <summary><b>2.3.1</b> — acropsh report fetchable via SFTP</summary>

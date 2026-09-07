@@ -1,6 +1,14 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.3.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.4.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.4.0 — UX + audit layer:
+#  - audit(): every action (start/result/exit code) appended to
+#    /var/log/acronis-tools-<hostname>.log — one persistent audit trail
+#  - uninstall: TWO-STEP confirm (y/N then type UNINSTALL) + service summary
+#    table shown BEFORE anything is removed
+#  - numbered step() progress labels in install flow
+#  - menu: aligned status line showing acronis_mms live state
+#  - svc_table(): colored service summary reused by check + uninstall
 # 2.3.1 — changes (on top of 2.0.0 fixes):
 #  - acropsh: HTML report chmod 644 after run (tempfile creates it root:600,
 #    unreadable via SFTP without root) + path printed after run
@@ -69,6 +77,31 @@ pause() {
   echo
 }
 
+# 2.4.0: persistent audit trail — every action + result lands in one log
+AUDIT_LOG="/var/log/acronis-tools-$(hostname).log"
+audit() { echo "[$(date '+%F %T')] $*" >> "$AUDIT_LOG"; }
+
+# 2.4.0: numbered step label for guided flows
+step() { echo; echo -e "${BOLD}${CYAN}━━ Step $1: ${2}${RESET}"; }
+
+# 2.4.0: colored service summary table (reused by check + uninstall)
+svc_table() {
+  local svc desc colored
+  printf "%b\n" "${BOLD}┌───────────────────────┬───────────────────────────────┬──────────┐${RESET}"
+  printf "%b\n" "${BOLD}│ Service               │ Description                   │ State    │${RESET}"
+  printf "%b\n" "${BOLD}├───────────────────────┼───────────────────────────────┼──────────┤${RESET}"
+  while [[ $# -ge 2 ]]; do
+    svc=$1; desc=$2; shift 2
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+      colored="${GREEN}active  ${RESET}"
+    else
+      colored="${RED}inactive${RESET}"
+    fi
+    printf "%b %-21s %b %-28s %b %b %b\n" "${BOLD}│${RESET}" "$svc" "${BOLD}│${RESET}" "$desc" "${BOLD}│${RESET}" "$colored" "${BOLD}│${RESET}"
+  done
+  printf "%b\n" "${BOLD}└───────────────────────┴───────────────────────────────┴──────────┘${RESET}"
+}
+
 ##############  PRE-CHECK  ####################
 [[ $EUID -ne 0 ]] && { echo "Please run as root"; exit 1; }
 
@@ -107,25 +140,31 @@ show_main_menu() {
   echo
   log "Choose action:" "$BOLD"
 
-  printf " $GREEN[1] Install Agent     $YELLOW(i)$RESET\n"
-  printf " $RED[2] Uninstall Agent   $YELLOW(u)$RESET\n"
-  printf " $BLUE[3] Check Services    $YELLOW(s)$RESET\n"
-  printf " $MAGENTA[4] acropsh Tool      $YELLOW(a)$RESET\n"
-  printf " $CYAN[5] CVT Tool          $YELLOW(c)$RESET\n"
-  printf " $YELLOW[6] Cleanup Tmp       $YELLOW(l)$RESET\n"
-  printf " $RED[0] Exit              $YELLOW(q)$RESET\n"
+  printf " $GREEN[1] Install Agent      $YELLOW(i)$RESET\n"
+  printf " $RED[2] Uninstall Agent    $YELLOW(u)$RESET\n"
+  printf " $BLUE[3] Check Services     $YELLOW(s)$RESET\n"
+  printf " $MAGENTA[4] acropsh Tool       $YELLOW(a)$RESET\n"
+  printf " $CYAN[5] CVT Tool           $YELLOW(c)$RESET\n"
+  printf " $YELLOW[6] Cleanup Tmp        $YELLOW(l)$RESET\n"
+  printf " $RED[0] Exit               $YELLOW(q)$RESET\n"
 
+  echo
+  if systemctl is-active --quiet acronis_mms 2>/dev/null; then
+    echo -e " ${GREEN}●${RESET} Agent status: ${GREEN}acronis_mms active${RESET}   ${BOLD}v${VERSION}${RESET}"
+  else
+    echo -e " ${RED}○${RESET} Agent status: ${RED}acronis_mms not running${RESET}   ${BOLD}v${VERSION}${RESET}"
+  fi
   echo
   read -rp "Press key (shortcut in yellow): " -n1 key
   echo
   case "${key,,}" in
-    i|1) install_agent   || warn "Install finished with error";;
-    u|2) uninstall_agent || warn "Uninstall finished with error";;
-    s|3) check_services;;
-    a|4) run_acropsh     || warn "acropsh finished with error";;
-    c|5) run_cvt_tool   || warn "CVT finished with error";;
-    l|6) cleanup;;
-    q|0) log "Bye!" "$GREEN"; exit 0;;
+    i|1) audit "MENU: install_agent start";  install_agent  && audit "ACTION install_agent: OK"   || { audit "ACTION install_agent: FAILED"; warn "Install finished with error"; };;
+    u|2) audit "MENU: uninstall_agent start"; uninstall_agent && audit "ACTION uninstall_agent: OK" || { audit "ACTION uninstall_agent: FAILED"; warn "Uninstall finished with error"; };;
+    s|3) audit "MENU: check_services"; check_services;;
+    a|4) audit "MENU: acropsh start"; run_acropsh && audit "ACTION acropsh: OK" || { audit "ACTION acropsh: FAILED"; warn "acropsh finished with error"; };;
+    c|5) audit "MENU: cvt start"; run_cvt_tool && audit "ACTION cvt: OK" || { audit "ACTION cvt: FAILED"; warn "CVT finished with error"; };;
+    l|6) audit "MENU: cleanup"; cleanup;;
+    q|0) audit "MENU: exit"; log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
   esac
 }
@@ -170,6 +209,7 @@ install_agent() {
   log_msg "=== Acronis Agent Installation Started ==="
 
   # 1. choose version
+  step 1 "Fetch available versions from the portal"
   log_msg "Fetching available versions ..."
   local page
   page=$(fetch_page "$DL_BASE/") || { error "Cannot reach $DL_BASE"; log_msg "ERROR: cannot reach $DL_BASE"; pause; return 1; }
@@ -189,6 +229,7 @@ install_agent() {
   log_msg "User selected version: $DL_VERSION"
 
   # 2. scan installer list
+  step 2 "Scan installer files"
   local BASE_URL="$DL_BASE/$DL_VERSION"
   log_msg "Scanning installers at $BASE_URL ..."
   page=$(fetch_page "$BASE_URL/") || { error "Cannot reach $BASE_URL"; log_msg "ERROR: cannot reach $BASE_URL"; pause; return 1; }
@@ -219,6 +260,7 @@ install_agent() {
   for i in "${!filtered[@]}"; do echo "  $((i+1)). ${filtered[$i]}"; done
 
   # 4. choose installer
+  step 3 "Select installer file"
   [[ ${#filtered[@]} -eq 0 ]] && { error "No installer available to select"; pause; return 1; }
   while true; do
     read -rp "Select installer number: " num
@@ -229,6 +271,7 @@ install_agent() {
   log_msg "User selected installer: $INSTALLER"
 
   # 5. token
+  step 4 "Registration token"
   local TOKEN
   read -rp "Registration Token: " TOKEN
   [[ -z $TOKEN ]] && { error "Token required"; pause; return 1; }
@@ -255,6 +298,7 @@ install_agent() {
   fi
 
   # 8. install — live output + heartbeat, rc ASLI
+  step 5 "Install (live output, APT phase may take 10-30 min)"
   log_msg "Running installer ..."
   export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
   info "Installer output shown live. APT prereq phase may take 10-30 min — do not Ctrl-C."
@@ -286,6 +330,7 @@ install_agent() {
   fi
 
   # 9. optional delete
+  step 6 "Cleanup installer file"
   local del
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
@@ -304,13 +349,35 @@ uninstall_agent() {
   local u=/usr/lib/Acronis/BackupAndRecovery/uninstall/uninstall
   if [[ ! -x $u ]]; then
     error "Uninstaller not found: $u"
-    warn "Agent terinstall? Cek: dpkg -l | grep -i acronis"
+    warn "Is the agent installed? Check: dpkg -l | grep -i acronis"
     pause
     return 1
   fi
+
+  # --- 2.4.0: pre-uninstall service summary + TWO-STEP confirmation ---
+  echo
+  warn "This will remove the Acronis Cyber Protect Agent from this machine."
+  echo
+  svc_table \
+    aakore "Acronis Agent Core" \
+    acronis_mms "Managed Machine Service" \
+    acronis_schedule "Schedule Service" \
+    acronis_kmod_service "Kernel Module Service"
+  echo
+  local confirmed
+  read -rp "Type y to continue with uninstall [y/N]: " confirmed
+  [[ ! $confirmed =~ ^[Yy]$ ]] && { info "Uninstall cancelled."; audit "uninstall: cancelled at step 1"; return 0; }
+
+  echo
+  warn "SECOND CONFIRMATION — this action is hard to reverse."
+  read -rp "Type UNINSTALL in uppercase to proceed: " confirmed
+  [[ $confirmed != "UNINSTALL" ]] && { info "Uninstall cancelled."; audit "uninstall: cancelled at step 2"; return 0; }
+
+  audit "uninstall: confirmed (both steps), starting"
   warn "Starting uninstall..."
   run_bg "Uninstalling" "$u" -a
   local rc=$?
+  audit "uninstall: uninstaller exit code $rc"
   if [[ $rc -eq 0 ]]; then
     success "Uninstall finished (exit 0)"
   else
@@ -326,14 +393,16 @@ uninstall_agent() {
 
 ##############  SERVICE CHECK  ################
 check_services() {
-  local svc
-  for svc in aakore acronis_mms; do
-    if systemctl is-active --quiet "$svc" 2>/dev/null; then
-      success "$svc is running"
-    else
-      error "$svc is NOT running"
-    fi
-  done
+  svc_table \
+    aakore "Acronis Agent Core" \
+    acronis_mms "Managed Machine Service" \
+    acronis_schedule "Schedule Service" \
+    acronis_kmod_service "Kernel Module Service"
+  if systemctl is-active --quiet acronis_mms 2>/dev/null; then
+    success "Agent is healthy"
+  else
+    error "acronis_mms not running — agent NOT healthy"
+  fi
   pause
 }
 
