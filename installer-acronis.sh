@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.6"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.7"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.7 — header box symmetric (centered lines); blank line before agent
+#   status; new portal connectivity status line (TCP probe :443, 3s timeout)
 # 2.9.6 — no-flicker clock: menu painted once, clock line repainted in-place
 #   every 30s via cursor moves (was 1s full clear+redraw = terminal glitch);
 #   one-shot intro splash (shield arming pulse)
@@ -194,18 +196,24 @@ draw_box() {
     clean=$(echo -e "$1" | sed 's/\x1b\[[0-9;]*m//g')
     local n
     n=$(echo -n "$clean" | wc -m)
-    [[ "$clean" == *"🛡️"* ]] && n=$((n - 1))
+    # ponytail: emoji-width handling is font/locale dependent (UTF-8 wc -m
+    # counts 2 codepoints for 🛡️ which matches its 2-column render here).
+    # If a user's terminal shows the box 1 col off, tune this adjustment.
+    [[ "$clean" == *"🛡️"* ]] && n=$((n - 0))
     echo "$n"
   }
 
   local border
   border=$(printf '─%.0s' $(seq 1 "$width"))
   printf "%b╭─%s─╮%b\n" "$CYAN" "$border" "$RESET"
-  local ln pad
+  local ln pad padl
   for ln in "${lines[@]}"; do
+    # 2.9.7: center each line — left pad split across both sides for a
+    # symmetric header box (was left-anchored => ragged right side)
     pad=$((width - $(display_width "$ln")))
     [[ $pad -lt 0 ]] && pad=0
-    printf "%b│%b %s%*s%b │%b\n" "$CYAN" "$RESET" "$ln" "$pad" "" "$CYAN" "$RESET"
+    padl=$((pad / 2))
+    printf "%b│%b %*s%s%*s %b │%b\n" "$CYAN" "$RESET" "$padl" "" "$ln" $((pad - padl)) "" "$CYAN" "$RESET"
   done
   printf "%b╰─%s─╯%b\n" "$CYAN" "$border" "$RESET"
 }
@@ -243,6 +251,23 @@ agent_status_line() {
     echo -e " ${RED}○${RESET} Agent: ${RED}stopped${RESET}   ${BOLD}acronis_mms inactive${RESET}$ver   ${BOLD}tool v${VERSION}${RESET}"
   else
     echo -e " ${RED}○${RESET} Agent: ${RED}not installed${RESET}   ${BOLD}tool v${VERSION}${RESET}"
+  fi
+}
+
+# 2.9.7: portal connectivity status — quick TCP probe (443) with short
+# timeout, no wget/curl body fetch: menu stays snappy even if portal is down
+portal_status_line() {
+  local host="cloudbackup.datacomm.co.id"
+  local ok
+  if timeout 3 bash -c "exec 3<>/dev/tcp/${host}/443" 2>/dev/null; then
+    ok=1
+  else
+    ok=0
+  fi
+  if [[ $ok == 1 ]]; then
+    echo -e " ${GREEN}●${RESET} Portal: ${GREEN}reachable${RESET}   ${BOLD}https://${host}${RESET}"
+  else
+    echo -e " ${RED}○${RESET} Portal: ${RED}unreachable${RESET}   ${BOLD}https://${host}${RESET}"
   fi
 }
 
@@ -296,9 +321,10 @@ show_main_menu() {
   printf " $RED[0] Exit               $YELLOW(q)$RESET ${DIM}quit to the shell$RESET"
 
 
-    echo
+    printf "\n\n"          # 2.9.7: blank line between Exit and status block
     agent_status_line
-    echo
+    portal_status_line
+    printf "\n"
   }
 
   splash

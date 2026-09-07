@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.6-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.7-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.6/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.7/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,15 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.7</b> — symmetric header, status spacing, portal connectivity</summary>
+
+- **Header box centered** — both banner lines now symmetric inside the box (was left-anchored/ragged)
+- **Blank line added** between the `Exit` menu item and the agent status block — no more cramped text
+- **New portal connectivity line** below the agent status: live TCP probe to `https://cloudbackup.datacomm.co.id` (3s timeout) — shows `Portal: reachable` 🟢 or `unreachable` 🔴 without slowing the menu down
+
+</details>
 
 <details>
 <summary><b>2.9.6</b> — intro splash + glitch-free clock</summary>
