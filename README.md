@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.7.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.7.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.8.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,17 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.8.0</b> — multi-portal install</summary>
+
+- **Portal picker** at install start: Datacomm preset, or a **custom portal** where you enter your own download base URL
+- **Optional `-C/--rain` registration-server override**: for custom portals you can point registration at any Acronis Cyber Protection service — it is written into the same mode-600 options-file as the token (never visible in `ps`), and shredded after install
+- Version scan, architecture auto-select, and the installer download all run against the **chosen portal** instead of the hardcoded Datacomm base
+- Portal choice is recorded in the audit log
+- Reminder shown when using a non-Datacomm portal: registration tokens do not transfer between portals — get the token from that portal's console
+
+</details>
 
 <details>
 <summary><b>2.7.0</b> — loading UX + [8] Check Components</summary>

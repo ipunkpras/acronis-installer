@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.7.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.8.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.8.0 — multi-portal: portal picker (preset Datacomm + custom URL),
+#   optional -C/--rain registration-server override (in options-file,
+#   hidden from ps), version scan + installer download from chosen portal
 # 2.7.0 — loading UX + components: real progress bar on downloads
 #   (% [####----] got/total), ASCII spinner (braille broke on many fonts)
 #   with elapsed time, mm:ss install heartbeat, [8] Check Components (v):
@@ -69,6 +72,11 @@ RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
 BLUE=$'\033[34m'; MAGENTA=$'\033[35m'; CYAN=$'\033[36m'
 BOLD=$'\033[1m'; WHITE=$'\033[37m'; RESET=$'\033[0m'
 
+# 2.8.0: multi-portal registry — "name|download_base|rain_url"
+# rain_url empty = trust the .bin's injected registration server
+PORTALS=(
+  "Datacomm (cloudbackup.datacomm.co.id)|https://cloudbackup.datacomm.co.id/download/u/baas/4.0|"
+)
 DL_BASE="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
 
 ##############  UTILS  ########################
@@ -308,11 +316,42 @@ install_agent() {
 
   log_msg "=== Acronis Agent Installation Started ==="
 
+  # 0. portal selection (2.8.0)
+  step 0 "Select portal"
+  local DL RAIN=""
+  echo "  Available portals:"
+  local p_i p_name
+  for p_i in "${!PORTALS[@]}"; do
+    p_name=${PORTALS[$p_i]%%|*}
+    printf "   %d) %s\n" "$((p_i+1))" "$p_name"
+  done
+  echo "   $(( ${#PORTALS[@]} + 1 )). Custom portal (enter URLs)"
+  local p_sel
+  read -rp "Portal number [1]: " p_sel
+  [[ -z $p_sel ]] && p_sel=1
+  if [[ $p_sel =~ ^[0-9]+$ ]] && (( p_sel >= 1 && p_sel <= ${#PORTALS[@]} )); then
+    IFS='|' read -r _ DL RAIN <<< "${PORTALS[$((p_sel-1))]}"
+    log_msg "Portal: $DL"
+    audit "portal: $DL"
+  elif [[ $p_sel == $(( ${#PORTALS[@]} + 1 )) ]]; then
+    read -rp "Download base URL (e.g. https://portal.example.com/download/u/baas/4.0): " DL
+    [[ -z $DL ]] && { error "URL required"; pause; return 1; }
+    DL=${DL%/}
+    read -rp "Registration server override -C (Enter = use .bin built-in): " RAIN
+    [[ -n $RAIN ]] && RAIN=${RAIN%/}
+    log_msg "Portal: $DL${RAIN:+ (reg: $RAIN)}"
+    audit "portal: custom $DL reg=${RAIN:-bin-default}"
+  else
+    error "Invalid selection"; pause; return 1
+  fi
+  # strip trailing slash for consistent URL building
+  DL=${DL%/}
+
   # 1. choose version
   step 1 "Fetch available versions from the portal"
   log_msg "Fetching available versions ..."
   local page
-  page=$(fetch_page "$DL_BASE/") || { error "Cannot reach $DL_BASE"; log_msg "ERROR: cannot reach $DL_BASE"; pause; return 1; }
+  page=$(fetch_page "$DL/") || { error "Cannot reach $DL"; log_msg "ERROR: cannot reach $DL"; pause; return 1; }
   mapfile -t vers < <(grep -oP 'href="\K[0-9]+\.[0-9]+\.[0-9]+(?=/)' <<<"$page" | sort -uV)
   [[ ${#vers[@]} -eq 0 ]] && { error "No version found"; pause; return 1; }
 
@@ -330,7 +369,7 @@ install_agent() {
 
   # 2. scan installer list
   step 2 "Scan installer files"
-  local BASE_URL="$DL_BASE/$DL_VERSION"
+  local BASE_URL="$DL/$DL_VERSION"
   log_msg "Scanning installers at $BASE_URL ..."
   page=$(fetch_page "$BASE_URL/") || { error "Cannot reach $BASE_URL"; log_msg "ERROR: cannot reach $BASE_URL"; pause; return 1; }
   mapfile -t installers < <(grep -oP 'href="\K[^\"]+\.(bin|exe|dmg|spk)(?=\")' <<<"$page" | sort -uV)
@@ -393,6 +432,8 @@ install_agent() {
   # 5. token
   step 4 "Registration token"
   local TOKEN
+  [[ -n $DL && $DL != https://cloudbackup.datacomm.co.id* ]] && \
+    info "Make sure the token was issued by THIS portal's console — tokens do not transfer between portals."
   read -rp "Registration Token: " TOKEN
   [[ -z $TOKEN ]] && { error "Token required"; pause; return 1; }
   log_msg "Token accepted (hidden)"
@@ -446,7 +487,9 @@ install_agent() {
   # command line — invisible in `ps` during the long install. Shredded after.
   local OPTFILE="$TMP/.token-optfile"
   umask 077
-  printf -- "--token=%s\n" "$TOKEN" > "$OPTFILE"
+  { printf -- "--token=%s\n" "$TOKEN"
+    [[ -n $RAIN ]] && printf -- "--rain=%s\n" "$RAIN"
+  } > "$OPTFILE"
   chmod 600 "$OPTFILE"
 
   # P3 (v2.6.0): installer temp files stay in our dir, not /var/tmp
@@ -823,12 +866,15 @@ show_help() {
   echo
   cat <<HELP
 ${BOLD}[1] Install Agent${RESET} (i)
-   Guided install. Fetches version list from the Datacomm portal,
-   auto-selects the installer for your OS architecture, asks for the
-   registration token (kept in a mode-600 options-file — never visible
-   in ps), lets you pick optional components (MySQL/Oracle/Proxmox/PCS
-   agents), then installs with live output + 30s heartbeat. Optional
-   verbose debug log. Log + downloaded installer: ~/acronis-installer/
+   Guided install, multi-portal. Pick the portal first (Datacomm
+   preset, or a custom one with your own download base URL and optional
+   registration-server override -C). The tool then fetches the version
+   list from that portal, auto-selects the installer for your OS
+   architecture, asks for the registration token (kept in a mode-600
+   options-file — never visible in ps; the -C override also goes there),
+   lets you pick optional components (MySQL/Oracle/Proxmox/PCS agents),
+   then installs with live output + 30s heartbeat. Optional verbose
+   debug log. Log + downloaded installer: ~/acronis-installer/
 
 ${BOLD}[2] Uninstall Agent${RESET} (u)
    Two-step confirmation (y/N, then type UNINSTALL) after showing a
