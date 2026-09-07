@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.15-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.16-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.15/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.16/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,20 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.16</b> — FIX+SEC: hidden password prompt for Transfer Outputs</summary>
+
+- 2.9.15 never asked for a password: scp ran detached (`run_bg`), stdin
+  disconnected — the SSH password prompt could never appear, transfer hung.
+- Now asks **before** the transfer: `read -rs` — input hidden on screen and
+  never in shell history.
+- Password is passed to scp via the **SSHPASS env var in a subshell**
+  (`sshpass -e`): never an argument, so it cannot appear in `ps aux` output.
+- Empty input = SSH key auth path (no sshpass involved).
+- Auto-installs sshpass (apt/dnf/yum/zypper) if missing.
+
+</details>
 
 <details>
 <summary><b>2.9.15</b> — NEW: Transfer Outputs to another host (menu [T], shortcut t)</summary>

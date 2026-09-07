@@ -1,6 +1,11 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.15"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.16"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.16 — FIX+SEC: Transfer Outputs never prompted for a password (scp ran
+#   detached via run_bg, stdin not connected — hung/fail silently). Now:
+#   hidden prompt (read -rs — not in shell history), password passed via
+#   SSHPASS env var in a subshell (sshpass -e): never in argv, never in ps aux.
+#   Empty input = key auth path. Auto-installs sshpass if missing.
 # 2.9.15 — NEW: Transfer Outputs (menu [T] / shortcut t): ship all tool
 #   outputs (cvt/acropsh logs+zip, sysinfo system_report_*, audit log) to
 #   another host via SCP as one tarball. Acronis installer .bin NEVER sent.
@@ -1061,10 +1066,31 @@ transfer_outputs() {
   echo
 
   # send
+  # 2.9.16: password prompt — hidden (read -rs: no echo, not in CLI history),
+  # passed via SSHPASS env var (sshpass -e): value never appears in ps aux,
+  # argv shows only "sshpass -e scp ...". Empty password = key-only auth.
+  check_and_install_sshpass || { error "sshpass required for password auth"; pause; return 1; }
   info "Transferring to $user@$host:$port ..."
-  run_bg "uploading $tarball" bash -c \
-    'exec "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
-    scp "$port" "$staging/$tarball" "$user@$host" "$path/"
+  info "Leave password empty if you use SSH key authentication."
+  local pw
+  read -rs -p "Password for $user@$host (input hidden): " pw
+  echo
+  if [[ -n $pw ]]; then
+    # password travels via ENV var of the child only (never argv):
+    # ( export ... ) runs in a subshell — SSHPASS exists only for this scp
+    ( export SSHPASS=$pw
+      unset pw
+      run_bg "uploading $tarball" bash -c \
+        'exec sshpass -e "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
+        scp "$port" "$staging/$tarball" "$user@$host" "$path/"
+      local rc=$?
+      unset SSHPASS
+      exit $rc )
+  else
+    run_bg "uploading $tarball" bash -c \
+      'exec "$0" -P "$1" -o StrictHostKeyChecking=accept-new "$2" "$3:$4"' \
+      scp "$port" "$staging/$tarball" "$user@$host" "$path/"
+  fi
   local rc=$?
   if [[ $rc -eq 0 ]]; then
     success "Transfer OK: $user@$host:$path/$tarball"
@@ -1354,6 +1380,17 @@ check_and_install_unzip() {
   elif command -v dnf     >/dev/null 2>&1; then dnf     install -y unzip
   elif command -v yum     >/dev/null 2>&1; then yum     install -y unzip
   elif command -v zypper  >/dev/null 2>&1; then zypper  -n install unzip
+  else error "No supported package manager"; return 1
+  fi
+}
+
+check_and_install_sshpass() {
+  command -v sshpass >/dev/null 2>&1 && return 0
+  warn "sshpass not found — installing..."
+  if   command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y sshpass
+  elif command -v dnf     >/dev/null 2>&1; then dnf     install -y sshpass
+  elif command -v yum     >/dev/null 2>&1; then yum     install -y sshpass
+  elif command -v zypper  >/dev/null 2>&1; then zypper  -n install sshpass
   else error "No supported package manager"; return 1
   fi
 }
