@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.5.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.6.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.6.0 — install hardening (P1-P3): token in options-file (600, shredded
+#   after — invisible in ps), component selection via --components-list/-i,
+#   --tmp-dir into ~/acronis-installer, optional -d debug
 # 2.5.3 — acropsh: TMPDIR=OUT_DIR (reports born in ~/acronis-installer, no
 #   post-run mv); cleanup message reflects both paths
 # 2.5.2 — help page fix: color vars now ANSI-C quoted ($'\033[..]m') so
@@ -389,12 +392,49 @@ install_agent() {
     return 1
   fi
 
+  # 7b. component selection (P2, v2.6.0) — from the .bin itself
+  step 5 "Select components (from installer)"
+  mapfile -t comps < <("$BIN" --components-list 2>/dev/null | grep -viE 'trueimage|permission denied' || true)
+  local comp_arg=""
+  if [[ ${#comps[@]} -gt 0 ]]; then
+    echo "  Available components in this installer:"
+    for i in "${!comps[@]}"; do printf "   %d) %s\n" "$((i+1))" "${comps[$i]}"; done
+    echo "  Enter = standard agent (BackupAndRecovery) — recommended for most hosts"
+    local cn
+    read -rp "Install component number [default: standard]: " cn
+    if [[ $cn =~ ^[0-9]+$ && $cn -ge 1 && $cn -le ${#comps[@]} ]]; then
+      comp_arg="--id=${comps[$((cn-1))]}"
+      log_msg "Selected component: ${comps[$((cn-1))]}"
+    else
+      log_msg "Standard agent install (no --id)"
+    fi
+  else
+    log_msg "components-list unavailable — standard agent install"
+  fi
+
   # 8. install — live output + heartbeat, rc ASLI
-  step 5 "Install (live output, APT phase may take 10-30 min)"
+  step 6 "Install (live output, APT phase may take 10-30 min)"
   log_msg "Running installer ..."
   export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
+
+  # P1 (v2.6.0): token goes into an options-file (mode 600) instead of the
+  # command line — invisible in `ps` during the long install. Shredded after.
+  local OPTFILE="$TMP/.token-optfile"
+  umask 077
+  printf -- "--token=%s\n" "$TOKEN" > "$OPTFILE"
+  chmod 600 "$OPTFILE"
+
+  # P3 (v2.6.0): installer temp files stay in our dir, not /var/tmp
+  local BIN_TMP="$TMP/installer-tmp"
+  mkdir -p "$BIN_TMP"
+
+  # P3: optional verbose debug log
+  local dbg; local dbg_arg=""
+  read -rp "Enable installer verbose debug log? [y/N] " dbg
+  [[ $dbg =~ ^[Yy]$ ]] && { dbg_arg="-d"; log_msg "Debug mode: on"; }
+
   info "Installer output shown live. APT prereq phase may take 10-30 min — do not Ctrl-C."
-  "$BIN" -a --token="$TOKEN" > >(tee -a "$LOG") 2>&1 &
+  "$BIN" -a --options-file="$OPTFILE" --tmp-dir="$BIN_TMP" $comp_arg $dbg_arg > >(tee -a "$LOG") 2>&1 &
   local pid=$! t0=$SECONDS
   while kill -0 "$pid" 2>/dev/null; do
     sleep 30
@@ -402,6 +442,9 @@ install_agent() {
   done
   wait "$pid"
   local rc=$?
+
+  # token file no longer needed — shred it
+  command -v shred >/dev/null 2>&1 && shred -u "$OPTFILE" 2>/dev/null || rm -f "$OPTFILE"
 
   if [[ $rc -eq 0 ]]; then
     success "Installation completed (exit 0)"
@@ -422,7 +465,7 @@ install_agent() {
   fi
 
   # 9. optional delete
-  step 6 "Cleanup installer file"
+  step 7 "Cleanup installer file"
   local del
   read -rp "Delete installer? [y/N] " del
   if [[ $del =~ ^[Yy]$ ]]; then
@@ -685,8 +728,10 @@ show_help() {
 ${BOLD}[1] Install Agent${RESET} (i)
    Guided install. Fetches version list from the Datacomm portal,
    auto-selects the installer for your OS architecture, asks for the
-   registration token, then installs with live output + 30s heartbeat.
-   Log + downloaded installer: ~/acronis-installer/ (per user)
+   registration token (kept in a mode-600 options-file — never visible
+   in ps), lets you pick optional components (MySQL/Oracle/Proxmox/PCS
+   agents), then installs with live output + 30s heartbeat. Optional
+   verbose debug log. Log + downloaded installer: ~/acronis-installer/
 
 ${BOLD}[2] Uninstall Agent${RESET} (u)
    Two-step confirmation (y/N, then type UNINSTALL) after showing a

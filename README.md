@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.5.3-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.5.3/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.6.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -146,6 +146,16 @@ See [Releases](../../tags) for all tags.
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.6.0</b> — install hardening: hidden token, components, tmp-dir, debug</summary>
+
+- **Token security**: the registration token is now written to a mode-600 options-file passed via `--options-file` (Acronis' own mechanism to hide sensitive data from `ps`), and the file is shredded after install — the token never appears on the command line or in `ps` output during the long APT phase
+- **Component selection**: new step shows the installer's own `--components-list` (e.g. BackupAndRecoveryAgent, AgentForProxmox, MySQLAgentFeature, OracleAgentFeature) — pick a number or press Enter for the standard agent
+- **`--tmp-dir`**: installer temp files now go to `~/acronis-installer/installer-tmp/` instead of `/var/tmp`
+- **Optional `-d` debug**: prompt before install enables Acronis' verbose log — handy when troubleshooting failed installs
+
+</details>
 
 <details>
 <summary><b>2.5.3</b> — acropsh reports born in ~/acronis-installer/</summary>
