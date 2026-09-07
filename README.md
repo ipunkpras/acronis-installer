@@ -1,6 +1,6 @@
 ## 🛡️ Acronis Cyber Protect Agent Installer Tools (v2.0)
 
-Script Bash interaktif berbasis menu untuk mempermudah instalasi, uninstal, pengecekan layanan, serta pemecahan masalah (*troubleshooting*) Acronis Cyber Protect Agent pada sistem operasi Linux.
+Script Bash interaktif berbasis menu untuk mempermudah instalasi, uninstall, pengecekan layanan, serta pemecahan masalah (*troubleshooting*) Acronis Cyber Protect Agent pada sistem operasi Linux.
 
 ### 📋 Fitur Utama
 
