@@ -1,6 +1,9 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.13"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.14"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.14 — FIX: spinner was invisible — outer ">/dev/null 2>&1" on run_bg
+#   silences the whole function including the spinner. Output redirect moved
+#   INSIDE (bash -c wrapper) — spinner prints, binary stays quiet.
 # 2.9.13 — Collect SysInfo: spinner + live elapsed counter while the report
 #   collects (run_bg). Was fully silent for minutes — indistinguishable from
 #   a hang on log-heavy machines.
@@ -946,9 +949,10 @@ collect_sysinfo() {
     info "Method: systeminfo binary (agent >= 11.8.177)"
     echo
     t0=$SECONDS
-    # 2.9.13: spinner+elapsed while systeminfo collects (was silent — looked
-    # hung; KB says collection "may take a while depending on log size")
-    run_bg "collecting system report" "$SI_BIN" >/dev/null 2>&1
+    # 2.9.14: FIX — outer ">/dev/null" on run_bg silenced the spinner too
+    # (redirect applies to the whole function incl. spinner's printf).
+    # Binary output is silenced INSIDE the wrapper; spinner stays visible.
+    run_bg "collecting system report" bash -c 'exec "$1" >/dev/null 2>&1' _ "$SI_BIN"
     local rc=$?
     # collect newest report file(s) from the official sysinfo dir
     if [[ -d $SI_DIR ]]; then
@@ -981,8 +985,8 @@ collect_sysinfo() {
     info "Method: acrocmd sysinfo (older agents)"
     echo
     t0=$SECONDS
-    # 2.9.13: spinner+elapsed (same as systeminfo path)
-    run_bg "collecting system report" acrocmd sysinfo --loc="$loc" >/dev/null 2>&1
+    # 2.9.14: FIX — spinner was silenced here too (outer >/dev/null)
+    run_bg "collecting system report" bash -c 'exec "$1" sysinfo --loc="$2" >/dev/null 2>&1' _ acrocmd "$loc"
     local rc=$?
     info "Elapsed: $((SECONDS - t0))s"
     if [[ -e $loc ]]; then
