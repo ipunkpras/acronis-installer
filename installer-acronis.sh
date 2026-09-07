@@ -1,6 +1,8 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.5.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.5.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.5.2 — help page fix: color vars now ANSI-C quoted ($'\033[..]m') so
+#   heredoc renders colors instead of literal escape codes
 # 2.5.1 — all outputs now go to ~/acronis-installer/ (real user's home):
 #   CVT log, acropsh zip/report, install log+bin, audit copy. /var/log kept
 # 2.5.0 — menu: "Cleanup Tmp" renamed "Clean Artifacts" (k), added Help (h)
@@ -50,9 +52,13 @@ readonly VERSION="2.5.1"   # Semantic Versioning: MAJOR.MINOR.PATCH
 set -uo pipefail
 
 ##############  COLOUR & THEME  ################
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'
-BLUE='\033[34m'; MAGENTA='\033[35m'; CYAN='\033[36m'
-BOLD='\033[1m'; WHITE='\033[37m'; RESET='\033[0m'
+# 2.5.2: ANSI-C quoting -> real ESC chars at definition time.
+# Reason: heredoc (help page) expands ${BOLD} literally without escape
+# interpretation, printing raw \033 codes. echo -e / printf %b elsewhere
+# treat already-real ESC chars identically, so this is safe everywhere.
+RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'
+BLUE=$'\033[34m'; MAGENTA=$'\033[35m'; CYAN=$'\033[36m'
+BOLD=$'\033[1m'; WHITE=$'\033[37m'; RESET=$'\033[0m'
 
 DL_BASE="https://cloudbackup.datacomm.co.id/download/u/baas/4.0"
 
