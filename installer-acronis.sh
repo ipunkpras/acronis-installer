@@ -1,6 +1,10 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.11"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.12"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.12 — NEW: Collect System Information (menu [9] / shortcut r): official
+#   Acronis system report per KB — systeminfo binary (agent >= 11.8.177,
+#   report from /var/lib/Acronis/sysinfo/) with acrocmd sysinfo --loc=
+#   fallback for older agents. Report copied to ~/acronis-installer/.
 # 2.9.11 — CRITICAL: restored gui/cli installer launch line deleted by the
 #   2.9.2 manual-mode refactor. Since 2.9.2 the .bin never executed in gui/cli
 #   mode: pid=$! grabbed the finished download pid, wait returned stale exit 0,
@@ -355,6 +359,7 @@ show_main_menu() {
   printf " $CYAN[5] CVT Tool            $YELLOW(c)$RESET ${DIM}MSP port checker to portal$RESET\n"
   printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET ${DIM}remove leftover tool files$RESET\n"
   printf " $CYAN[8] Check Components    $YELLOW(v)$RESET ${DIM}inventory installed components$RESET\n"
+  printf " $BLUE[9] Collect SysInfo     $YELLOW(r)$RESET ${DIM}official system report (KB)$RESET\n"
 
   # 2.9.4: Help & Exit in their own misc column (not operational items)
   printf "%b ╾───────┤ misc ├───────╼%b\n" "$CYAN" "$RESET"
@@ -388,6 +393,7 @@ show_main_menu() {
     k|6) audit "MENU: cleanup artifacts"; cleanup;;
     h|7) audit "MENU: help"; show_help;;
     v|8) audit "MENU: check components"; check_components;;
+    r|9) audit "MENU: collect sysinfo start"; collect_sysinfo && audit "ACTION collect_sysinfo: OK" || { audit "ACTION collect_sysinfo: FAILED"; warn "SysInfo collection finished with error"; };;
     q|0) audit "MENU: exit"; log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
   esac
@@ -910,7 +916,85 @@ check_components() {
   pause
 }
 
-##############  SERVICE CHECK  ################
+##############  COLLECT SYSTEM INFO  ###########
+# Official Acronis KB: collecting a system report when the agent is NOT
+# installed or the machine is offline (Linux):
+#   new agents (>= 11.8.177): /usr/lib/Acronis/BackupAndRecovery/systeminfo
+#     -> report lands in /var/lib/Acronis/sysinfo/
+#   old agents: acrocmd sysinfo --loc=/full_path_to_report/file_name
+# Takes a while depending on log size; "cannot be collected" errors on
+# individual logs are EXPECTED — the utility keeps collecting the rest.
+collect_sysinfo() {
+  local SI_BIN=/usr/lib/Acronis/BackupAndRecovery/systeminfo
+  local SI_DIR=/var/lib/Acronis/sysinfo
+  local out="$OUT_DIR"
+  local stamp report dest t0
+
+  log "Collect System Information" "$BOLD"
+  echo
+  info "Official Acronis system report (KB) - may take a while depending"
+  info "on log size. Errors about a specific log that 'cannot be collected'"
+  info "are expected - the utility keeps collecting other logs."
+
+  # method 1: new agent systeminfo binary
+  if [[ -x $SI_BIN ]]; then
+    stamp=$(date +%Y%m%d_%H%M%S)
+    report="system_report_${stamp}"
+    info "Method: systeminfo binary (agent >= 11.8.177)"
+    echo
+    t0=$SECONDS
+    "$SI_BIN" >/dev/null 2>&1
+    local rc=$?
+    # collect newest report file(s) from the official sysinfo dir
+    if [[ -d $SI_DIR ]]; then
+      dest="$out/${report}"
+      mkdir -p "$dest"
+      local f newest="" nt=0
+      for f in "$SI_DIR"/*; do
+        [[ -e $f ]] || continue
+        if [[ $(stat -c%Y "$f" 2>/dev/null || echo 0) -gt $nt ]]; then
+          newest=$f nt=$(stat -c%Y "$f")
+        fi
+      done
+      if [[ -n $newest ]]; then
+        cp -f "$newest" "$dest/" && success "Report saved: $dest/$(basename "$newest")" \
+          || error "copy failed"
+      else
+        error "no report file found in $SI_DIR"
+      fi
+    else
+      error "sysinfo dir $SI_DIR not found"
+    fi
+    info "Elapsed: $((SECONDS - t0))s"
+    pause
+    return 0
+  fi
+
+  # method 2: old agents / acrocmd
+  if command -v acrocmd >/dev/null 2>&1; then
+    local loc="$out/system_report_${stamp:-$(date +%Y%m%d_%H%M%S)}"
+    info "Method: acrocmd sysinfo (older agents)"
+    echo
+    t0=$SECONDS
+    acrocmd sysinfo --loc="$loc" >/dev/null 2>&1
+    local rc=$?
+    info "Elapsed: $((SECONDS - t0))s"
+    if [[ -e $loc ]]; then
+      success "Report saved: $loc"
+    else
+      warn "Report file not found at $loc (exit $rc) - check the output above"
+    fi
+    pause
+    return $rc
+  fi
+
+  error "No collection method available:"
+  error "  - $SI_BIN missing (agent not installed or < 11.8.177)"
+  error "  - acrocmd not found in PATH"
+  pause
+  return 1
+}
+
 check_services() {
   svc_table \
     aakore "Acronis Agent Core" \

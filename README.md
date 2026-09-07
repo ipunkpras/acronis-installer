@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.11-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.12-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.11/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.12/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,20 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.12</b> — NEW: Collect System Information (menu [9], shortcut r)</summary>
+
+- Official Acronis KB method for collecting a system report (e.g. for support
+  tickets) when the agent is not installed or the machine is offline:
+  - **agent ≥ 11.8.177:** runs `/usr/lib/Acronis/BackupAndRecovery/systeminfo`,
+    newest report from `/var/lib/Acronis/sysinfo/` is copied to `~/acronis-installer/system_report_<timestamp>/`
+  - **older agents:** `acrocmd sysinfo --loc=<path>` fallback
+  - neither available → clear guidance on what's missing
+- Per KB: collection may take a while; per-log "cannot be collected" errors are
+  expected — the utility keeps collecting other logs.
+
+</details>
 
 <details>
 <summary><b>2.9.11</b> — CRITICAL: gui/cli install actually runs the installer again</summary>
