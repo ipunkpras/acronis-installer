@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.18-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.10.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.18/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,15 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.10.0</b> — NEW: uninstall keep-config option (--no-purge)</summary>
+
+* Uninstall menu now asks **"Keep config, logs & registration for reinstall? [y/N]"** after the second confirmation.
+* `y` → uninstaller runs with `--no-purge`: `/opt/acronis` config, logs & registration are kept, so reinstall does not need a new registration token.
+* `n` / Enter → previous behaviour (full purge `-a`).
+* Audit log records the chosen purge flags.
+
+</details>
 
 <details>
 <summary><b>2.9.18</b> — FIX: acropsh service_summary reports now included in Transfer Outputs</summary>

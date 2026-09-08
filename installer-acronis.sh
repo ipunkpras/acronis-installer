@@ -1,6 +1,6 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.18"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.10.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
 # 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
 #   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
 #   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
@@ -854,8 +854,19 @@ uninstall_agent() {
   [[ $confirmed != "UNINSTALL" ]] && { info "Uninstall cancelled."; audit "uninstall: cancelled at step 2"; return 0; }
 
   audit "uninstall: confirmed (both steps), starting"
+  echo
+  local keep
+  read -rp "Keep config, logs & registration for reinstall? [y/N]: " keep
+  local purge_flags=("-a")
+  if [[ $keep =~ ^[Yy]$ ]]; then
+    purge_flags+=("--no-purge")
+    info "Uninstall WITHOUT purge — /opt/acronis config, logs & registration kept."
+  else
+    info "Full purge — config, logs & registration will be removed too."
+  fi
+  audit "uninstall: purge flags: ${purge_flags[*]}"
   warn "Starting uninstall..."
-  run_bg "Uninstalling" "$u" -a
+  run_bg "Uninstalling" "$u" "${purge_flags[@]}"
   local rc=$?
   audit "uninstall: uninstaller exit code $rc"
   if [[ $rc -eq 0 ]]; then
