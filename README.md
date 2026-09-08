@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.9.17-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.9.18-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -123,7 +123,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Pin to a specific version (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.17/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.9.18/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +206,19 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details>
+<summary><b>2.9.18</b> — FIX: acropsh service_summary reports now included in Transfer Outputs</summary>
+
+- acropsh writes its HTML report via mkstemp → names like
+  `tmpXXXX-service_summary.html`. Transfer Outputs only matched
+  `acropsh_*.log/zip`, so reports never shipped. Pattern now includes
+  `*-service_summary.html`.
+- Legacy reports born in `/tmp` (tool versions ≤ 2.5.3) are copied into
+  the output dir first so they ship too.
+- CVT output (`cvt_*.log`) was already included — unchanged.
+
+</details>
 
 <details>
 <summary><b>2.9.17</b> — NO-DEP+FIX: no sshpass (native SSH_ASKPASS) + destination fallback</summary>

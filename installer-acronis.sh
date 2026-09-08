@@ -1,6 +1,10 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.9.17"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.9.18"   # Semantic Versioning: MAJOR.MINOR.PATCH
+# 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
+#   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
+#   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
+#   /tmp (v2.5.3-) are copied into the output dir first so they ship too.
 # 2.9.17 — NO-DEP+FIX: dropped sshpass entirely. Password auth now uses
 #   OpenSSH's NATIVE SSH_ASKPASS mechanism (helper script + env var in a
 #   subshell + setsid): zero new packages, zero restarts, no argv leak.
@@ -1023,8 +1027,8 @@ collect_sysinfo() {
 
 ##############  TRANSFER OUTPUTS  #############
 # 2.9.15: ship all tool outputs (logs + sysinfo reports) to another host via
-# SCP. Files: cvt_*.log, acropsh_*.log, acropsh_*.zip, system_report_*/
-# + the root audit log. Acronis installer .bin files are NEVER included.
+# SCP. Files: cvt_*.log, acropsh_*.log, acropsh_*.zip, *-service_summary.html,
+# system_report_*/ + the root audit log. Acronis installer .bin files are NEVER included.
 transfer_outputs() {
   local host user path port tarball staging n files sz
   log "Transfer Output Files" "$BOLD"
@@ -1034,9 +1038,14 @@ transfer_outputs() {
   echo
 
   # gather candidates (maxdepth 1 keeps it predictable; sysinfo dirs matched too)
+  # 2.9.18: *-service_summary.html = acropsh report (mkstemp names like
+  # tmpXXXX-service_summary.html) — previously missed by acropsh_*.log/zip.
+  # Legacy reports (v2.5.3- born in /tmp) are copied into OUT_DIR FIRST so
+  # they appear in the file list and ship too.
+  find /tmp -maxdepth 1 -name '*-service_summary.html' -exec cp -f {} "$OUT_DIR"/ \; 2>/dev/null
   files=$(find "$OUT_DIR" -maxdepth 1 \
     \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
-       -o -name 'system_report_*' \) -print 2>/dev/null | sort)
+       -o -name '*-service_summary.html' -o -name 'system_report_*' \) -print 2>/dev/null | sort)
   n=$(printf '%s\n' "$files" | grep -c . || true)
   if [[ -z $files ]]; then
     error "No output files found in $OUT_DIR"
