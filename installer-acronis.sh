@@ -1,6 +1,6 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.10.4"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.10.5"   # Semantic Versioning: MAJOR.MINOR.PATCH
 # 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
 #   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
 #   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
@@ -1203,11 +1203,10 @@ run_cvt_tool() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
-  echo "Enter your ${BOLD}Acronis portal${RESET} credentials (cloudbackup.datacomm.co.id) -"
-  echo "NOT this machine's OS login."
+  echo "Enter your ${BOLD}Acronis portal${RESET} credentials (cloudbackup.datacomm.co.id)"
   echo ""
   local LOGIN PASSWORD
-  read -rp "Portal login (e-mail): " LOGIN
+  read -rp "Portal login: " LOGIN
   # 2.2.1: the packed CVT binary re-enables tty echo on its own prompt,
   # so stty -echo cannot hide it. Instead bash reads the password hidden
   # (read -s: no echo, nothing in history) and pipes it to CVT stdin.
