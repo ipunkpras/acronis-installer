@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.10.2-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.10.3-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -135,7 +135,7 @@ sudo bash installer-acronis.sh
 Pin to the current release instead of `main`:
 
 ```bash
-curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.2/installer-acronis.sh
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.3/installer-acronis.sh
 ```
 
 After downloading, verify you actually run the version you expect:
@@ -157,7 +157,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Run a pinned version as one-liner (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.2/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.3/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -240,6 +240,12 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.10.3</b> — FIX: CVT Tool reported "failed (exit 6)" when 2FA was enabled without a cloud certificate</summary>
+
+With 2FA enabled, the Acronis CVT binary only runs its speed-test phase if the machine holds a cloud authentication certificate (issued during the first backup run — KB 47678). Without one, the tool still performs and passes **all port checks**, then prints "No speed test done because agent is not installed and 2FA is enabled" and exits non-zero (observed: 6) — which the installer reported as a scary "CVT failed (exit 6)" even though connectivity was fully verified. The installer now detects that banner in the captured log and reports accurately: all port checks passed, speed test skipped by design, and it will work normally after the first backup. Non-2FA runs are untouched (banner never appears, exit code stays as-is).
+
+</details>
 
 <details><summary><b>2.10.2</b> — FIX: CVT Tool hangs forever when portal user has 2FA enabled</summary>
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.10.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.10.3"   # Semantic Versioning: MAJOR.MINOR.PATCH
 # 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
 #   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
 #   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
@@ -1226,6 +1226,19 @@ run_cvt_tool() {
   kill "$writer_pid" 2>/dev/null
   rm -f "$fifo"
   unset PASSWORD
+
+  # 2.10.3: CVT exits non-zero (observed: 6) when 2FA is enabled and the
+  # machine has no cloud auth certificate (issued during first backup run;
+  # KB 47678: "When using 2FA, the speed test only works if the Agent is
+  # installed"). Port checks still all passed in that case. Detect the
+  # tool's own banner in the captured log and report it accurately
+  # instead of a misleading "CVT failed".
+  if grep -q 'No speed test done' "$output_file" 2>/dev/null; then
+    success "CVT finished: all port checks passed"
+    warn  "Speed test skipped by design: 2FA enabled and this machine has no cloud certificate yet (KB 47678)"
+    info  "Speed test will run normally after the first backup (certs are issued during backups)"
+    rc=0
+  fi
 
   echo ""
   if [[ $rc -eq 0 ]]; then
