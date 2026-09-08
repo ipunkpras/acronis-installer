@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.10.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.10.1-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -40,16 +40,21 @@ built for the Datacomm Cloud Business backup portal
 ```
 🛡️   Acronis Cyber Protect Agent Tools
 ─────────────────────────────────────────
- [1] Install Agent      (i)   → guided install: auto OS/arch installer pick
- [2] Uninstall Agent    (u)   → TWO-STEP confirm + service summary first
- [3] Check Services     (s)   → colored status table + health verdict
- [4] acropsh Tool       (a)   → agent health-check scripts
- [5] CVT Tool           (c)   → port connectivity checker (hidden password)
- [6] Clean Artifacts     (k)   → remove tool leftovers in /tmp
- [7] Help                (h)   → usage guide for every function
- [0] Exit               (q)
+ [1] Install Agent      (i)  guided multi-portal install
+ [2] Uninstall Agent    (u)  two-step confirm + keep-config option
+ [3] Check Services     (s)  service status + health verdict
+ [4] acropsh Tool       (a)  official Acronis health check
+ [5] CVT Tool           (c)  MSP port checker to portal
+ [6] Clean Artifacts    (k)  remove leftover tool files
+ [8] Check Components   (v)  inventory installed components
+ [9] Collect SysInfo    (r)  official system report (KB)
+ [T] Transfer Outputs   (t)  send logs+reports to another host
+ ╾───────┤ misc ├───────╼
+ [7] Help               (h)  usage guide + contacts
+ [0] Exit               (q)  quit to the shell
  ────────────────────────────
- ● Agent footer: live acronis_mms state + INSTALLED AGENT VERSION (e.g. `v26.7.1 build 42848`) shown under the menu
+ ● Footer: host + primary-NIC IP, live agent version & acronis_mms state,
+   portal reachability — shown under the menu
 ```
 
 <details>
@@ -70,6 +75,13 @@ built for the Datacomm Cloud Business backup portal
 Runs Acronis’ own uninstaller, checks its exit code, then verifies
 `acronis_mms` is really stopped. Warns if a reboot may still be needed
 (kernel module).
+
+After the two-step confirmation, it asks **“Keep config, logs &
+registration for reinstall? [y/N]”**:
+- `y` → uninstalls with `--no-purge` — `/opt/acronis` config, logs and
+  portal registration are kept, so a reinstall does not need a new
+  registration token
+- `n` / Enter → full purge (previous behaviour)
 
 ### [3] Check Services `(s)`
 Green/red status for the two core agent services: `acronis_mms` and `aakore`.
@@ -105,10 +117,32 @@ and reports are written, and the audit trail location.
 
 ## 🚀 Usage
 
-### One-liner (recommended)
+### One-liner (recommended — no download, no git clone)
 
 ```bash
 sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/refs/heads/main/installer-acronis.sh)"
+```
+
+### Download with curl (no git clone)
+
+Grab the script, keep it on the host, reuse it any time:
+
+```bash
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/main/installer-acronis.sh
+sudo bash installer-acronis.sh
+```
+
+Pin to the current release instead of `main`:
+
+```bash
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.1/installer-acronis.sh
+```
+
+After downloading, verify you actually run the version you expect:
+
+```bash
+grep -m1 'VERSION=' installer-acronis.sh
+# readonly VERSION="2.10.1"
 ```
 
 ### From a clone
@@ -120,10 +154,10 @@ sudo bash installer-acronis.sh
 ```
 
 <details>
-<summary>📎 Pin to a specific version (tag)</summary>
+<summary>📎 Run a pinned version as one-liner (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.1/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -206,6 +240,19 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.10.1</b> — README: full menu overview + curl usage (no git clone)</summary>
+
+* Menu Overview now matches the real v2.10 menu: [8] Check Components,
+  [9] Collect SysInfo, [T] Transfer Outputs, misc column, footer status
+  lines — previously still the old 7-item list.
+* Uninstall section documents the **keep-config prompt** (`y` →
+  `--no-purge`, reinstall without a new registration token).
+* New Usage subsection **“Download with curl (no git clone)”**: `curl -fsSLkO`
+  main or pinned tag, then `sudo bash installer-acronis.sh`, plus version
+  verification (`grep -m1 'VERSION='`) — no git or clone needed.
+
+</details>
 
 <details><summary><b>2.10.0</b> — NEW: uninstall keep-config option (--no-purge)</summary>
 
