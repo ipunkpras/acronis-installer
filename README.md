@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.10.1-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.10.2-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -135,7 +135,7 @@ sudo bash installer-acronis.sh
 Pin to the current release instead of `main`:
 
 ```bash
-curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.1/installer-acronis.sh
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.2/installer-acronis.sh
 ```
 
 After downloading, verify you actually run the version you expect:
@@ -157,7 +157,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Run a pinned version as one-liner (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.1/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.2/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -240,6 +240,12 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.10.2</b> — FIX: CVT Tool hangs forever when portal user has 2FA enabled</summary>
+
+The CVT (Connection Verification Tool) flow used a one-shot pipe (`printf password | binary`) which closed stdin right after the password line. On 2FA-enabled portal users the binary then asks for the 6-digit OTP code, hits EOF and hangs until the 300s timeout — the code typed by the user never reached the tool. Now a FIFO relay keeps stdin open: the hidden password goes in first, then live keystrokes (the OTP) are relayed to the binary. Works with 2FA on and off; password stays hidden (`read -s`).
+
+</details>
 
 <details><summary><b>2.10.1</b> — README: full menu overview + curl usage (no git clone)</summary>
 

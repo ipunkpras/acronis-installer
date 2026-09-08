@@ -1,6 +1,6 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.10.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.10.2"   # Semantic Versioning: MAJOR.MINOR.PATCH
 # 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
 #   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
 #   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
@@ -1210,8 +1210,21 @@ run_cvt_tool() {
   # (read -s: no echo, nothing in history) and pipes it to CVT stdin.
   read -rs -p "Password: " PASSWORD
   echo
-  printf '%s\n' "$PASSWORD" | timeout 300 "$OUT_DIR/cvt_tool/msp_port_checker_packed.exe" -u="$LOGIN" -h=cloudbackup.datacomm.co.id 2>&1 | tee "$output_file"
-  local rc=${PIPESTATUS[1]}
+  # 2.10.2: 2FA support. Old pipe (printf | binary) closed stdin after the
+  # password line -> when the portal has 2FA enabled the binary asks for the
+  # OTP code, hits EOF and hangs forever. FIFO relay keeps stdin open:
+  # password goes in first, then live keystrokes (OTP) are relayed to the
+  # binary until it exits. Writer reads /dev/tty explicitly: background jobs
+  # get stdin=/dev/null otherwise (non-interactive shell) -> instant EOF.
+  # binary until it exits. rc = [0] (binary, previously [1] mid-pipeline).
+  local fifo="$OUT_DIR/.cvt_in.$$"
+  rm -f "$fifo"; mkfifo "$fifo"
+  { printf '%s\n' "$PASSWORD"; exec cat; } < /dev/tty > "$fifo" &
+  local writer_pid=$!
+  timeout 300 "$OUT_DIR/cvt_tool/msp_port_checker_packed.exe" -u="$LOGIN" -h=cloudbackup.datacomm.co.id < "$fifo" 2>&1 | tee "$output_file"
+  local rc=${PIPESTATUS[0]}
+  kill "$writer_pid" 2>/dev/null
+  rm -f "$fifo"
   unset PASSWORD
 
   echo ""
