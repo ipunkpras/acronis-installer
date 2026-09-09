@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.10.5-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.11.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -135,7 +135,7 @@ sudo bash installer-acronis.sh
 Pin to the current release instead of `main`:
 
 ```bash
-curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.5/installer-acronis.sh
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.11.0/installer-acronis.sh
 ```
 
 After downloading, verify you actually run the version you expect:
@@ -157,7 +157,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Run a pinned version as one-liner (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.10.5/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.11.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -240,6 +240,18 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.11.0</b> — NEW: Backup Traffic Debug ([10]/d) — live RX/TX monitor for stuck backups</summary>
+
+New menu item for diagnosing backups whose progress hangs in the tenant portal. Three phases, all logged to `backup_traffic_<host>_<date>.log` in `~/acronis-installer/`:
+
+1. **Connection snapshot** — `ss -tunp` filtered on Acronis endpoints (ports 443/8443/7793, portal IPs, mms/acronis processes). Zero established connections = the agent cannot reach the cloud at all.
+2. **Live rate monitor** — RX/TX on the default-route NIC sampled every 2s from `/proc/net/dev` (no extra packages). Press `q` to stop. During a healthy backup the TX (upload) line flows constantly.
+3. **Verdict** — three outcomes: no connection (network/firewall/registration), connection but no traffic for 3+ samples (upload stalled — cloud-side/agent pipeline), or traffic flowing (network healthy; if the portal is still stuck the cause is elsewhere).
+
+Works on any Linux the Acronis agent supports (`/proc`, `ss`, `iproute2`, `read -t` only). Log is picked up by Transfer Outputs [T] and Clean Artifacts [6].
+
+</details>
 
 <details><summary><b>2.10.5</b> — Polish: CVT prompt simplified (drop "NOT this machine's OS login" line and "(e-mail)" hint)</summary>
 

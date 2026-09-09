@@ -1,6 +1,6 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.10.5"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.11.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
 # 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
 #   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
 #   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
@@ -384,6 +384,7 @@ show_main_menu() {
   printf " $YELLOW[6] Clean Artifacts     $YELLOW(k)$RESET ${DIM}remove leftover tool files$RESET\n"
   printf " $CYAN[8] Check Components    $YELLOW(v)$RESET ${DIM}inventory installed components$RESET\n"
   printf " $BLUE[9] Collect SysInfo     $YELLOW(r)$RESET ${DIM}official system report (KB)$RESET\n"
+  printf " $GREEN[10] Backup Traffic Debug $YELLOW(d)$RESET ${DIM}live RX/TX monitor for stuck backups$RESET\n"
   printf " $MAGENTA[T] Transfer Outputs   $YELLOW(t)$RESET ${DIM}send logs+reports to another host$RESET\n"
 
   # 2.9.4: Help & Exit in their own misc column (not operational items)
@@ -419,6 +420,7 @@ show_main_menu() {
     h|7) audit "MENU: help"; show_help;;
     v|8) audit "MENU: check components"; check_components;;
     r|9) audit "MENU: collect sysinfo start"; collect_sysinfo && audit "ACTION collect_sysinfo: OK" || { audit "ACTION collect_sysinfo: FAILED"; warn "SysInfo collection finished with error"; };;
+    d|10) audit "MENU: backup traffic debug start"; run_backup_traffic_debug && audit "ACTION backup_traffic_debug: OK" || { audit "ACTION backup_traffic_debug: FAILED"; warn "Traffic debug finished with error"; };;
     t|T) audit "MENU: transfer outputs start"; transfer_outputs && audit "ACTION transfer_outputs: OK" || { audit "ACTION transfer_outputs: FAILED"; warn "Transfer finished with error"; };;
     q|0) audit "MENU: exit"; log "Bye!" "$GREEN"; exit 0;;
     *)   warn "Invalid choice"; sleep 1;;
@@ -1055,7 +1057,8 @@ transfer_outputs() {
   # they appear in the file list and ship too.
   find /tmp -maxdepth 1 -name '*-service_summary.html' -exec cp -f {} "$OUT_DIR"/ \; 2>/dev/null
   files=$(find "$OUT_DIR" -maxdepth 1 \
-    \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
+    \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' -o -name 'backup_traffic_*.log' \
+       -o -name 'backup_traffic_*.log' \
        -o -name '*-service_summary.html' -o -name 'system_report_*' \) -print 2>/dev/null | sort)
   n=$(printf '%s\n' "$files" | grep -c . || true)
   if [[ -z $files ]]; then
@@ -1180,6 +1183,78 @@ check_services() {
     error "acronis_mms not running — agent NOT healthy"
   fi
   pause
+}
+
+##############  BACKUP TRAFFIC DEBUG  ##########
+run_backup_traffic_debug() {
+  local output_file="$OUT_DIR/backup_traffic_$(hostname)_$(date +%F).log"
+  local iface rx0 tx0 rx1 tx1 rate_rx rate_tx cum_rx cum_tx
+  local samples=0 idle=0 nconn=0
+  cum_rx=0; cum_tx=0
+
+  iface=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'dev \K[^ ]+')
+  [[ -z $iface ]] && { error "No default route - cannot pick NIC"; pause; return 1; }
+
+  echo ""
+  echo "=============================================="
+  info "Backup Traffic Debug - live RX/TX on NIC: $iface"
+  info "Output file: $output_file"
+  echo "=============================================="
+  echo ""
+
+  # -- Phase 1: agent-to-cloud connection snapshot
+  {
+  echo "=== Agent-to-cloud connections (ss -tunp) ==="
+  ss -tunp 2>/dev/null | awk 'NR==1 || /cloudbackup|:8443|:443|:7793|mms|acronis/'
+  } | tee "$output_file"
+  nconn=$(ss -t state established 2>/dev/null | grep -cE ':(8443|443|7793)' || true)
+  echo "" | tee -a "$output_file"
+
+  local portal_ips
+  portal_ips=$(getent hosts cloudbackup.datacomm.co.id 2>/dev/null | awk '{print $1}' | sort -u)
+
+  # -- Phase 2: live rate monitor, 2s sampling, press q to stop
+  echo "Live traffic sampling (every 2s) - press 'q' to stop and get the verdict"
+  echo ""
+  read -r rx0 tx0 _ < <(awk -v i="$iface" '$1==i":" {print $2, $10}' /proc/net/dev)
+  sleep 2
+  while :; do
+    read -r rx1 tx1 _ < <(awk -v i="$iface" '$1==i":" {print $2, $10}' /proc/net/dev)
+    rate_rx=$(( (rx1 - rx0) / 2 / 1024 ))
+    rate_tx=$(( (tx1 - tx0) / 2 / 1024 ))
+    cum_rx=$((cum_rx + (rx1 - rx0)))
+    cum_tx=$((cum_tx + (tx1 - tx0)))
+    samples=$((samples + 1))
+    printf "%(%H:%M:%S)T  RX: %6d KB/s   TX: %6d KB/s   (total RX %s MB / TX %s MB)\n" -1 "$rate_rx" "$rate_tx" \
+      "$(awk -v b="$cum_rx" 'BEGIN{printf "%.1f", b/1048576}')" "$(awk -v b="$cum_tx" 'BEGIN{printf "%.1f", b/1048576}')" | tee -a "$output_file"
+    if read -rsn1 -t 2 stopkey 2>/dev/null; then
+      [[ ${stopkey,,} == "q" ]] && break
+    fi
+    nconn=$(ss -t state established 2>/dev/null | grep -cE ':(8443|443|7793)' || true)
+    if (( rate_rx == 0 && rate_tx == 0 )); then idle=$((idle + 1)); else idle=0; fi
+    rx0=$rx1; tx0=$tx1
+  done
+
+  # -- Phase 3: verdict
+  {
+  echo ""
+  echo "=== Verdict ==="
+  if   (( nconn == 0 )); then
+    echo "NO agent-to-cloud connection found (ports 443/8443/7793). Backup cannot upload - check network/firewall or agent registration."
+  elif (( idle >= 3 )); then
+    echo "Connection present but NO traffic for $idle consecutive samples. Upload stalled - likely cloud-side or agent pipeline issue (not local network)."
+  else
+    echo "Traffic flowing and connection present - network healthy. If portal progress is stuck, cause is elsewhere (plan/portal side)."
+  fi
+  echo "Portal IPs: ${portal_ips:-unresolved}"
+  echo "Samples: $samples"
+  } | tee -a "$output_file"
+
+  echo ""
+  info "Log file saved at: $output_file"
+  echo ""
+  pause
+  return 0
 }
 
 ##############  CVT TOOL  #####################
@@ -1447,11 +1522,11 @@ cleanup() {
   info "Cleaning tool artifacts (~/.acronis-installer + legacy /tmp)..."
   # ponytail: narrow patterns + parens (find precedence) — never touch other zips
   find /tmp -maxdepth 1 -type f \
-       \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
+       \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' -o -name 'backup_traffic_*.log' \
           -o -name 'Linux64.zip' -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete 2>/dev/null
   # v2.5.1 artifacts now live in ~/acronis-installer — clean same patterns there
   find "$OUT_DIR" -maxdepth 1 -type f \
-       \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' \
+       \( -name 'cvt_*.log' -o -name 'acropsh_*.log' -o -name 'acropsh_*.zip' -o -name 'backup_traffic_*.log' \
           -o -name 'acropsh_*.bin' -o -name 'Linux64.zip' \
           -o -name 'CyberProtect_AgentFor*.bin' \) -print -delete 2>/dev/null
   rm -rf "$OUT_DIR/installer-tmp" "$OUT_DIR/cvt_tool" 2>/dev/null
