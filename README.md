@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.11.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.13.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -135,7 +135,7 @@ sudo bash installer-acronis.sh
 Pin to the current release instead of `main`:
 
 ```bash
-curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.11.0/installer-acronis.sh
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.13.0/installer-acronis.sh
 ```
 
 After downloading, verify you actually run the version you expect:
@@ -157,7 +157,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Run a pinned version as one-liner (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.11.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.13.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -240,6 +240,12 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.13.0</b> — REVERT: Backup Traffic Debug back to NIC-level RX/TX (undo v2.12.0 precision mode)</summary>
+
+v2.12.0 measured Acronis-cloud traffic only via per-socket `ss` counters (bytes_acked). When the agent rotates sockets (e.g. after a backup completes) the old socket's lifetime counters disappear from the sum, which made cumulative totals drift negative — confusing to read. Reverted to the simpler, robust v2.11.0 behavior: whole-NIC RX/TX from `/proc/net/dev` on the default-route interface. Note: NIC-level numbers include all traffic on the interface (SSH sessions, monitoring, other services), not just backup — read the TX flow trend, not absolute values, when correlating with backup progress.
+
+</details>
 
 <details><summary><b>2.11.0</b> — NEW: Backup Traffic Debug ([10]/d) — live RX/TX monitor for stuck backups</summary>
 
