@@ -1,6 +1,6 @@
 #!/bin/bash
 # Acronis Cyber Protect Agent Installer   •   dcloud.co.id
-readonly VERSION="2.12.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
+readonly VERSION="2.13.0"   # Semantic Versioning: MAJOR.MINOR.PATCH
 # 2.9.18 — FIX: acropsh service_summary reports (mkstemp names like
 #   tmpXXXX-service_summary.html) were never picked up by Transfer Outputs
 #   (pattern only had acropsh_*.log/zip). Now included; legacy reports in
@@ -1197,8 +1197,8 @@ run_backup_traffic_debug() {
 
   echo ""
   echo "=============================================="
-  info "Backup Traffic Debug - Acronis-cloud traffic only (ports 443/8443/7793)"
-  info "NIC: $iface | Output file: $output_file"
+  info "Backup Traffic Debug - live RX/TX on NIC: $iface"
+  info "Output file: $output_file"
   echo "=============================================="
   echo ""
 
@@ -1208,41 +1208,20 @@ run_backup_traffic_debug() {
   ss -tunp 2>/dev/null | awk 'NR==1 || /cloudbackup|:8443|:443|:7793|mms|acronis/'
   } | tee "$output_file"
   nconn=$(ss -t state established 2>/dev/null | grep -cE ':(8443|443|7793)' || true)
-  [[ -z $nconn ]] && nconn=0
-  echo "Acronis cloud connections found: $nconn"
   echo "" | tee -a "$output_file"
 
   local portal_ips
   portal_ips=$(getent hosts cloudbackup.datacomm.co.id 2>/dev/null | awk '{print $1}' | sort -u)
 
-  # 2.12.0: PRECISION mode - counters are per-SOCKET (ss -Htin bytes_acked /
-  # bytes_received), summed over Acronis cloud sockets only (peer port
-  # 443/8443/7793). NIC-level /proc/net/dev counting mixed in unrelated
-  # traffic; this measures Acronis-cloud traffic exclusively.
-  # ss -Htin emits 2 lines per socket (address line + TAB stats line) -> paste - -
-  snap_cloud_counters() {
-    ss -Htin state established 2>/dev/null | paste - - \
-    | awk '{
-        peer=$4;
-        if (peer ~ /:(7793|443|8443)$/) {
-          sent=0; recv=0;
-          if (match($0, /bytes_acked:[0-9]+/)) { sent=substr($0, RSTART+13, RLENGTH-13)+0 }
-          if (match($0, /bytes_received:[0-9]+/)) { recv=substr($0, RSTART+16, RLENGTH-16)+0 }
-          print sent, recv;
-        } }'
-  }
-
   # -- Phase 2: live rate monitor, 2s sampling, press q to stop
-  echo "Live Acronis-cloud traffic sampling (every 2s) - press 'q' to stop and get the verdict"
+  echo "Live traffic sampling (every 2s) - press 'q' to stop and get the verdict"
   echo ""
-  read -r tx0 rx0 _ < <(snap_cloud_counters | awk '{s+=$1; r+=$2; n++} END{print s+0, r+0, n+0}')
+  read -r rx0 tx0 _ < <(awk -v i="$iface" '$1==i":" {print $2, $10}' /proc/net/dev)
   sleep 2
   while :; do
-    read -r tx1 rx1 _ < <(snap_cloud_counters | awk '{s+=$1; r+=$2; n++} END{print s+0, r+0, n+0}')
-    rate_tx=$(( (tx1 - tx0) / 2 / 1024 ))
+    read -r rx1 tx1 _ < <(awk -v i="$iface" '$1==i":" {print $2, $10}' /proc/net/dev)
     rate_rx=$(( (rx1 - rx0) / 2 / 1024 ))
-    [[ $rate_tx -lt 0 ]] && rate_tx=0
-    [[ $rate_rx -lt 0 ]] && rate_rx=0
+    rate_tx=$(( (tx1 - tx0) / 2 / 1024 ))
     cum_rx=$((cum_rx + (rx1 - rx0)))
     cum_tx=$((cum_tx + (tx1 - tx0)))
     samples=$((samples + 1))
@@ -1251,10 +1230,7 @@ run_backup_traffic_debug() {
     if read -rsn1 -t 2 stopkey 2>/dev/null; then
       [[ ${stopkey,,} == "q" ]] && break
     fi
-    nconn=0
-    snap_cloud_counters | { while read -r _ _; do nconn=$((nconn+1)); done; echo "$nconn" > /dev/null; } 2>/dev/null
-    # cheap recount: n sockets = lines from snap
-    nconn=$(snap_cloud_counters | wc -l)
+    nconn=$(ss -t state established 2>/dev/null | grep -cE ':(8443|443|7793)' || true)
     if (( rate_rx == 0 && rate_tx == 0 )); then idle=$((idle + 1)); else idle=0; fi
     rx0=$rx1; tx0=$tx1
   done
@@ -1266,9 +1242,9 @@ run_backup_traffic_debug() {
   if   (( nconn == 0 )); then
     echo "NO agent-to-cloud connection found (ports 443/8443/7793). Backup cannot upload - check network/firewall or agent registration."
   elif (( idle >= 3 )); then
-    echo "Connection present but NO Acronis-cloud traffic for $idle consecutive samples. Upload stalled - likely cloud-side or agent pipeline issue (not local network)."
+    echo "Connection present but NO traffic for $idle consecutive samples. Upload stalled - likely cloud-side or agent pipeline issue (not local network)."
   else
-    echo "Acronis-cloud traffic is flowing and connection present - network healthy. If portal progress is stuck, cause is elsewhere (plan/portal side)."
+    echo "Traffic flowing and connection present - network healthy. If portal progress is stuck, cause is elsewhere (plan/portal side)."
   fi
   echo "Portal IPs: ${portal_ips:-unresolved}"
   echo "Samples: $samples"
