@@ -9,7 +9,7 @@ troubleshoot the Acronis Cyber Protect Agent on any Linux host —
 built for the Datacomm Cloud Business backup portal
 (`cloudbackup.datacomm.co.id`).
 
-[![Version](https://img.shields.io/badge/version-2.11.0-blue.svg)](./installer-acronis.sh)
+[![Version](https://img.shields.io/badge/version-2.12.0-blue.svg)](./installer-acronis.sh)
 [![Bash](https://img.shields.io/badge/bash-4%2B-green.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#-requirements)
 [![License](https://img.shields.io/badge/portal-Datacomm%20BaaS-orange.svg)](http://cloudbackup.datacomm.co.id)
@@ -135,7 +135,7 @@ sudo bash installer-acronis.sh
 Pin to the current release instead of `main`:
 
 ```bash
-curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.11.0/installer-acronis.sh
+curl -fsSLkO https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.12.0/installer-acronis.sh
 ```
 
 After downloading, verify you actually run the version you expect:
@@ -157,7 +157,7 @@ sudo bash installer-acronis.sh
 <summary>📎 Run a pinned version as one-liner (tag)</summary>
 
 ```bash
-sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.11.0/installer-acronis.sh)"
+sudo bash -c "$(curl -fsSLk https://raw.githubusercontent.com/ipunkpras/acronis-installer/v2.12.0/installer-acronis.sh)"
 ```
 
 See [Releases](../../tags) for all tags.
@@ -240,6 +240,12 @@ Behavior: missing token / unknown version / bad component → clean error messag
 ## 🗺️ Changelog
 
 Format: [Semantic Versioning](https://semver.org) `MAJOR.MINOR.PATCH`
+
+<details><summary><b>2.12.0</b> — IMPROVED: Backup Traffic Debug now measures Acronis-cloud traffic ONLY (per-socket counters)</summary>
+
+v2.11.0 counted RX/TX on the whole NIC (`/proc/net/dev`), which mixed unrelated traffic (SSH, monitoring, other services) into the backup numbers. v2.12.0 reads per-socket TCP counters (`ss -Htin`: `bytes_acked` / `bytes_received`) summed over the agent's Acronis cloud sockets only (peer port 443/8443/7793). The monitor and verdict now show exactly what flows between the agent and the Acronis cloud — nothing else. Idle machine with an idle-but-connected agent now correctly reads 0 KB/s instead of ambient NIC noise.
+
+</details>
 
 <details><summary><b>2.11.0</b> — NEW: Backup Traffic Debug ([10]/d) — live RX/TX monitor for stuck backups</summary>
 
